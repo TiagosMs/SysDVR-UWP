@@ -46,10 +46,10 @@ namespace SysDVR.UWP
             try
             {
                 // Initialize SDL context if not already done
-                if (Program.SdlCtx == null)
+                if (SysDVR.Client.Program.SdlCtx == null)
                 {
-                    Program.SdlCtx = new SDLContext();
-                    Program.SdlCtx.CreateWindow("SysDVR UWP");
+                    SysDVR.Client.Program.SdlCtx = new SDLContext();
+                    SysDVR.Client.Program.SdlCtx.CreateWindow("SysDVR UWP");
                 }
 
                 var options = new StreamingOptions
@@ -59,11 +59,7 @@ namespace SysDVR.UWP
                     UseNALReplay = true
                 };
 
-                var deviceInfo = new DeviceInfo
-                {
-                    Source = ConnectionType.Net,
-                    ConnectionString = ip
-                };
+                var deviceInfo = DeviceInfo.ForIp(ip);
 
                 var connector = new DeviceConnector(deviceInfo, _cts, options);
                 connector.OnMessage += (msg) =>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace FFmpeg.AutoGen;
 
@@ -16,7 +16,7 @@ public static partial class ffmpeg
     
     static ffmpeg()
     {
-        EAGAIN = OperatingSystem.IsMacOS() ? 35 : 11;
+        EAGAIN = 11;
         DynamicallyLoadedBindings.Initialize();
     }
 

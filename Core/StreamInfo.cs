@@ -1,4 +1,4 @@
-﻿using SysDVR.Client.Sources;
+using SysDVR.Client.Sources;
 using System;
 using System.Text;
 
@@ -136,7 +136,9 @@ namespace SysDVR.Client.Core
         {
             try
             {
-                var str = Encoding.UTF8.GetString(TrimNullBytes(advertisementPacket));
+                var nullIdx = Array.IndexOf(advertisementPacket, (byte)0);
+                var length = nullIdx < 0 ? advertisementPacket.Length : nullIdx;
+                var str = Encoding.UTF8.GetString(advertisementPacket, 0, length);
                 return new DeviceInfo(source, str, connectionString);
             }
             catch

@@ -1,4 +1,4 @@
-﻿using FFmpeg.AutoGen;
+using FFmpeg.AutoGen;
 using SDL2;
 using SysDVR.Client.Core;
 using System;
@@ -355,10 +355,10 @@ namespace SysDVR.Client.Targets.Player
             catch { /* ignore */ }
 
             // Free any remaining buffers
-            videoBuffer.Reader.ReadAllAsync()
-                .ToBlockingEnumerable()
-                .ToList()
-                .ForEach(x => x.Item1.Free());
+            while (videoBuffer.Reader.TryRead(out var item))
+            {
+                item.Item1.Free();
+            }
 
             base.Dispose();
         }

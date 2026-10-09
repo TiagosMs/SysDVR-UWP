@@ -1,4 +1,4 @@
-﻿using SysDVR.Client.Core;
+using SysDVR.Client.Core;
 using System;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -222,11 +222,11 @@ namespace SysDVR.Client.Sources
             if (packet.Buffer is null)
                 return "Packet buffer is null";
 
-            uint ErrorType = BitConverter.ToUInt32(packet.Buffer.Span);
-            uint ErrorCode = BitConverter.ToUInt32(packet.Buffer.Span[4..]);
-            ulong Context1 = BitConverter.ToUInt64(packet.Buffer.Span[8..]);
-            ulong Context2 = BitConverter.ToUInt64(packet.Buffer.Span[16..]);
-            ulong Context3 = BitConverter.ToUInt64(packet.Buffer.Span[24..]);
+            uint ErrorType = System.Buffers.BinaryPrimitives.ReadUInt32LittleEndian(packet.Buffer.Span);
+            uint ErrorCode = System.Buffers.BinaryPrimitives.ReadUInt32LittleEndian(packet.Buffer.Span.Slice(4));
+            ulong Context1 = System.Buffers.BinaryPrimitives.ReadUInt64LittleEndian(packet.Buffer.Span.Slice(8));
+            ulong Context2 = System.Buffers.BinaryPrimitives.ReadUInt64LittleEndian(packet.Buffer.Span.Slice(16));
+            ulong Context3 = System.Buffers.BinaryPrimitives.ReadUInt64LittleEndian(packet.Buffer.Span.Slice(24));
 
             if (ErrorType == 1)
                 return $"Video capture failed with code 0x{ErrorCode:x} requested size was 0x{Context1:x}";
@@ -300,16 +300,16 @@ namespace SysDVR.Client.Sources
 
             // TODO: add future protocol compatibility adapters here
 
-            if (str[.."SysDVR|".Length] != "SysDVR|")
+            if (!str.StartsWith("SysDVR|"))
                 throw new Exception($"{Program.Strings.Errors.InitialPacketError} {Program.Strings.Errors.VersionTroubleshooting}");
 
-            if (str.Last() != '\0')
+            if (str[str.Length - 1] != '\0')
                 throw new Exception("Invalid handshake hello packet (terminator)");
 
             var high = str["SysDVR|".Length];
             var low = str["SysDVR|".Length + 1];
 
-            if (!char.IsAscii(high) || !char.IsAscii(low))
+            if (high > 127 || low > 127)
                 throw new Exception("Invalid handshake hello packet (version)");
 
             return ProtocolUtil.StringToVersionCode($"{high}{low}");

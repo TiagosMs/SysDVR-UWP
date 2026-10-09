@@ -1,4 +1,4 @@
-﻿using SysDVR.Client.Core;
+using SysDVR.Client.Core;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -22,10 +22,11 @@ namespace SysDVR.Client.Sources
                 devices.Clear();
                 cancel = new CancellationTokenSource();
                 using var client = new UdpClient(19999);
+                using var reg = cancel.Token.Register(() => { try { client.Dispose(); } catch { } });
 
                 while (!cancel.IsCancellationRequested)
                 {
-                    var msg = await client.ReceiveAsync(cancel.Token).ConfigureAwait(false);
+                    var msg = await client.ReceiveAsync().ConfigureAwait(false);
                     if (msg.Buffer != null)
                     {
                         var ip = msg.RemoteEndPoint.Address;

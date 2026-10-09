@@ -1,4 +1,4 @@
-﻿using SysDVR.Client.Core;
+using SysDVR.Client.Core;
 using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
@@ -147,7 +147,7 @@ namespace SysDVR.Client.Sources
 		protected override async Task<byte[]> SendHandshakePacket(ProtoHandshakeRequest req, int outputSize)
 		{
 			byte[] buffer = new byte[ProtoHandshakeRequest.StructureSize];
-			MemoryMarshal.Write(buffer, in req);
+			MemoryMarshal.Write(buffer, ref req);
 
 			var stream = req.IsVideoPacket ? videoStream : audioStream;
 
@@ -215,32 +215,64 @@ namespace SysDVR.Client.Sources
 				this.reportMessage = reportMessage;
             }
 
+			private static async Task ConnectSocketAsync(Socket sock, string host, int port, CancellationToken cancellationToken)
+			{
+				var tcs = new TaskCompletionSource<bool>();
+				using var reg = cancellationToken.Register(() =>
+				{
+					try { sock.Dispose(); } catch { }
+					tcs.TrySetCanceled();
+				});
+
+				var args = new SocketAsyncEventArgs();
+				args.RemoteEndPoint = new DnsEndPoint(host, port);
+				args.Completed += (s, e) =>
+				{
+					if (e.SocketError == SocketError.Success)
+						tcs.TrySetResult(true);
+					else
+						tcs.TrySetException(new SocketException((int)e.SocketError));
+					args.Dispose();
+				};
+
+				if (!sock.ConnectAsync(args))
+				{
+					if (args.SocketError == SocketError.Success)
+						tcs.TrySetResult(true);
+					else
+						tcs.TrySetException(new SocketException((int)args.SocketError));
+					args.Dispose();
+				}
+
+				await tcs.Task.ConfigureAwait(false);
+			}
+
 			public async Task Connect()
 			{
-				socket?.Dispose();
-				socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-				try
-				{
-					socket.ReceiveTimeout = 2000;
-					socket.SendTimeout = 2000;
-                    socket.ReceiveBufferSize = PacketHeader.MaxTransferSize;
-                    socket.NoDelay = true;
-				}
-				catch { }
-
 				for (int i = 0; i < MaxConnectionAttempts && !cancel.IsCancellationRequested; i++)
 				{
 					reportMessage($"[{StreamName}] {string.Format(Program.Strings.Connection.ConnectionInProgress, i, MaxConnectionAttempts)}");
 
 					try
 					{
-						await socket.ConnectAsync(host, port, cancel).ConfigureAwait(false);
+						socket?.Dispose();
+						socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+						try
+						{
+							socket.ReceiveTimeout = 2000;
+							socket.SendTimeout = 2000;
+							socket.ReceiveBufferSize = PacketHeader.MaxTransferSize;
+							socket.NoDelay = true;
+						}
+						catch { }
+
+						await ConnectSocketAsync(socket, host, port, cancel).ConfigureAwait(false);
 						if (socket.Connected)
 							return;
 					}
 					catch
 					{
-						if (i == MaxConnectionAttempts)
+						if (i == MaxConnectionAttempts - 1)
 							throw;
 
 						await Task.Delay(ConnFailDelayMs, cancel).ConfigureAwait(false);
@@ -257,9 +289,9 @@ namespace SysDVR.Client.Sources
 			{
 				while (length > 0)
 				{
-					int r = await socket.ReceiveAsync(new ArraySegment<byte>(data, offset, length), cancel).ConfigureAwait(false);
+					int r = await socket.ReceiveAsync(new ArraySegment<byte>(data, offset, length), SocketFlags.None).ConfigureAwait(false);
 					if (r <= 0)
-						throw new Exception("Socket communication erorr");
+						throw new Exception("Socket communication error");
 
 					length -= r;
 					offset += r;
@@ -301,7 +333,7 @@ namespace SysDVR.Client.Sources
 					// If we just resynched the stream the header was cut, read only the remainig part of the packet
 					await ReadExact(headerBuffer, 4, PacketHeader.StructLength - 4).ConfigureAwait(false);
 					// Then fix the magic value manually
-					BitConverter.TryWriteBytes(headerBuffer, PacketHeader.MagicResponse);
+					System.Buffers.BinaryPrimitives.WriteUInt32LittleEndian(headerBuffer, PacketHeader.MagicResponse);
 				}
 				else
 					await ReadExact(headerBuffer, 0, PacketHeader.StructLength).ConfigureAwait(false);
@@ -330,7 +362,7 @@ namespace SysDVR.Client.Sources
 
 			public async Task<byte[]> DoHandshake(byte[] reqBuffer, int outputSize)
 			{
-				if (await socket.SendAsync(reqBuffer, cancel).ConfigureAwait(false) <= 0)
+				if (await socket.SendAsync(new ArraySegment<byte>(reqBuffer), SocketFlags.None).ConfigureAwait(false) <= 0)
 					throw new Exception("Socket send error");
 
 				byte[] output = new byte[outputSize];

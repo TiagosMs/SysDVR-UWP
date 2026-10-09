@@ -30,10 +30,3 @@ namespace SysDVR.Client
     }
 }
 
-#if !NET5_0_OR_GREATER
-namespace System.Runtime.CompilerServices
-{
-    // Required for C# 9+ init properties in .NET Standard 2.0 / UWP
-    internal static class IsExternalInit { }
-}
-#endif

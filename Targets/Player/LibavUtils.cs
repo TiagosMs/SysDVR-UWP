@@ -1,4 +1,4 @@
-﻿using FFmpeg.AutoGen;
+using FFmpeg.AutoGen;
 using SysDVR.Client.Core;
 using System;
 using System.Collections.Generic;
@@ -68,11 +68,11 @@ namespace SysDVR.Client.Targets.Player
             bin.Write((byte)(0xE0 | 1));
             bin.Write((byte)0);
             bin.Write((byte)(sps.Length & 0xFF));
-            bin.Write(sps);
+            bin.Write(sps.ToArray());
             bin.Write((byte)1);
             bin.Write((byte)0);
             bin.Write((byte)(pps.Length & 0xFF));
-            bin.Write(pps);
+            bin.Write(pps.ToArray());
 
             var data = mem.ToArray();
             // This pointer is freed by ffmpeg automatically, we must use av_malloc to prevent heap corruption 

@@ -1,4 +1,4 @@
-﻿using FFmpeg.AutoGen;
+using FFmpeg.AutoGen;
 using SysDVR.Client.Core;
 using SysDVR.Client.Sources;
 using System;
@@ -426,7 +426,7 @@ namespace SysDVR.Client.Targets.Player
                 sws_freeContext(Converter.Converter);
             }
 
-            if (TargetTexture != 0)
+            if (TargetTexture != IntPtr.Zero)
                 SDL_DestroyTexture(TargetTexture);
 
             Decoder.OnFrameEvent.Dispose();

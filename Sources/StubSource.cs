@@ -1,4 +1,4 @@
-﻿using SysDVR.Client.Core;
+using SysDVR.Client.Core;
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -84,7 +84,7 @@ namespace SysDVR.Client.Sources
                 ProtoHandshakeResponse02 res = new();
                 res.Result = ProtoHandshakeRequest.HandshakeOKCode;
                 var data = new byte[ProtoHandshakeResponse02.Size];
-                MemoryMarshal.Write(data, res);
+                MemoryMarshal.Write(data, ref res);
 
                 return Task.FromResult(data);
             }
@@ -93,7 +93,7 @@ namespace SysDVR.Client.Sources
                 ProtoHandshakeResponse03 res = new();
                 res.Result = ProtoHandshakeRequest.HandshakeOKCode;
                 var data = new byte[ProtoHandshakeResponse03.Size];
-                MemoryMarshal.Write(data, res);
+                MemoryMarshal.Write(data, ref res);
 
                 return Task.FromResult(data);
             }
