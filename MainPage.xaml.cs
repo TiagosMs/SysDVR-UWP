@@ -85,7 +85,7 @@ namespace SysDVR.UWP
                     _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                     {
                         Debug.WriteLine($"[SysDVR Fatal Error] {ex}");
-                        Program.DebugLog($"[SysDVR Fatal Error] {ex}");
+                        SysDVR.Client.Program.DebugLog($"[SysDVR Fatal Error] {ex}");
                         StopStreaming($"Erro Fatal ({ex.GetType().Name}): {ex.Message}");
                     });
                 };
@@ -99,7 +99,7 @@ namespace SysDVR.UWP
             catch (Exception ex)
             {
                 Debug.WriteLine($"[SysDVR Connect Error] {ex}");
-                Program.DebugLog($"[SysDVR Connect Error] {ex}");
+                SysDVR.Client.Program.DebugLog($"[SysDVR Connect Error] {ex}");
 
                 string errMessage;
                 if (ex is DllNotFoundException || ex is BadImageFormatException)
@@ -145,7 +145,7 @@ namespace SysDVR.UWP
             catch (Exception ex)
             {
                 Debug.WriteLine($"Erro ao finalizar streaming: {ex.Message}");
-                Program.DebugLog($"Erro ao finalizar streaming: {ex.Message}");
+                SysDVR.Client.Program.DebugLog($"Erro ao finalizar streaming: {ex.Message}");
             }
             finally
             {
