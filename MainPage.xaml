@@ -68,7 +68,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock x:Name="StatusTextBlock" Text="Status: Desconectado" FontSize="13" Foreground="#9E9EB2" VerticalAlignment="Center"/>
+                <TextBlock x:Name="StatusTextBlock" Text="Status: Desconectado" FontSize="13" Foreground="#9E9EB2" VerticalAlignment="Center" TextWrapping="Wrap"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock x:Name="FpsTextBlock" Text="" FontSize="13" Foreground="#00E5FF" Margin="0,0,15,0"/>
                     <TextBlock Text="Xbox Series Dev Mode" FontSize="12" Foreground="#5E5E6E" VerticalAlignment="Center"/>

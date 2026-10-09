@@ -84,8 +84,9 @@ namespace SysDVR.UWP
                 {
                     _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                     {
-                        StatusTextBlock.Text = $"Erro Fatal: {ex.Message}";
-                        StopStreaming();
+                        Debug.WriteLine($"[SysDVR Fatal Error] {ex}");
+                        Program.DebugLog($"[SysDVR Fatal Error] {ex}");
+                        StopStreaming($"Erro Fatal ({ex.GetType().Name}): {ex.Message}");
                     });
                 };
 
@@ -97,9 +98,20 @@ namespace SysDVR.UWP
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Falha na conexão: {ex}");
-                StatusTextBlock.Text = $"Erro ao conectar: {ex.Message}";
-                StopStreaming();
+                Debug.WriteLine($"[SysDVR Connect Error] {ex}");
+                Program.DebugLog($"[SysDVR Connect Error] {ex}");
+
+                string errMessage;
+                if (ex is DllNotFoundException || ex is BadImageFormatException)
+                {
+                    errMessage = $"Erro DLL ({ex.GetType().Name}): {ex.Message}";
+                }
+                else
+                {
+                    errMessage = $"Erro ({ex.GetType().Name}): {ex.Message}";
+                }
+
+                StopStreaming(errMessage);
             }
         }
 
@@ -108,10 +120,19 @@ namespace SysDVR.UWP
             StopStreaming();
         }
 
-        public void StopStreaming()
+        public void StopStreaming(string? statusMessage = null)
         {
             if (!_isStreaming && _cts == null)
+            {
+                if (statusMessage != null)
+                {
+                    _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                    {
+                        StatusTextBlock.Text = statusMessage;
+                    });
+                }
                 return;
+            }
 
             _isStreaming = false;
 
@@ -124,6 +145,7 @@ namespace SysDVR.UWP
             catch (Exception ex)
             {
                 Debug.WriteLine($"Erro ao finalizar streaming: {ex.Message}");
+                Program.DebugLog($"Erro ao finalizar streaming: {ex.Message}");
             }
             finally
             {
@@ -137,7 +159,7 @@ namespace SysDVR.UWP
                 ConnectButton.IsEnabled = true;
                 DisconnectButton.IsEnabled = false;
                 IpTextBox.IsEnabled = true;
-                StatusTextBlock.Text = "Status: Desconectado";
+                StatusTextBlock.Text = statusMessage ?? "Status: Desconectado";
             });
         }
     }
