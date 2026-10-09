@@ -7,6 +7,11 @@ on:
     branches: [ "**" ]
   workflow_dispatch:
 
+env:
+  SDL2_VERSION: "2.30.0"
+  FFMPEG_VERSION: "7.0.0"
+  VCPKG_DEFAULT_BINARY_CACHE: "${{ github.workspace }}/.vcpkg-bincache"
+
 jobs:
   build:
     name: Build x64 UWP AppX
@@ -44,51 +49,31 @@ jobs:
           "WINDOWS_SDK_VERSION=$targetSdk" | Out-File -FilePath $env:GITHUB_ENV -Append
           "SDK_LIB_PATH=$sdkLibPath" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Cache vcpkg & native libraries
-        uses: actions/cache@v4
+      - name: Restore Native Dependencies Cache
         id: native-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             NativeLibs/x64
-            ${{ env.VCPKG_INSTALLATION_ROOT }}/installed/x64-uwp
-          key: ${{ runner.os }}-vcpkg-uwp-ffmpeg-sdl2-v3
+            .vcpkg-bincache
+          key: native-deps-${{ runner.os }}-x64-${{ env.SDL2_VERSION }}-${{ env.FFMPEG_VERSION }}-${{ hashFiles('.github/scripts/install-native-deps.ps1') }}
           restore-keys: |
-            ${{ runner.os }}-vcpkg-uwp-ffmpeg-sdl2-
+            native-deps-${{ runner.os }}-x64-${{ env.SDL2_VERSION }}-${{ env.FFMPEG_VERSION }}-
 
       - name: Build / Install Native Dependencies (SDL2 + FFmpeg)
+        if: steps.native-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Path "NativeLibs/x64" -Force | Out-Null
+          & .github/scripts/install-native-deps.ps1 -DestinationDir "NativeLibs/x64"
 
-          $existing = Get-ChildItem -Path "NativeLibs/x64" -Filter "SDL2.dll" -ErrorAction SilentlyContinue
-          if ($existing) {
-            Write-Host "Native libraries found in NativeLibs/x64. Skipping compilation."
-            Get-ChildItem -Path "NativeLibs/x64"
-            return
-          }
-
-          # Install via pre-installed vcpkg if not cached in installed/x64-uwp
-          if (-not (Test-Path "$env:VCPKG_INSTALLATION_ROOT/installed/x64-uwp/bin/SDL2.dll")) {
-            Write-Host "Compiling SDL2 and FFmpeg for x64-uwp via vcpkg..."
-            & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install `
-              sdl2:x64-uwp `
-              ffmpeg[core,avcodec,swscale,swresample]:x64-uwp `
-              --recurse
-          } else {
-            Write-Host "Using cached vcpkg libraries."
-          }
-
-          # Copy DLLs to NativeLibs/x64
-          $vcpkgBin = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-uwp/bin"
-          $patterns = @("SDL2.dll", "avcodec*.dll", "avutil*.dll", "swscale*.dll", "swresample*.dll")
-
-          foreach ($pattern in $patterns) {
-            $files = Get-ChildItem -Path $vcpkgBin -Filter $pattern -ErrorAction SilentlyContinue
-            foreach ($f in $files) {
-              Copy-Item -Path $f.FullName -Destination "NativeLibs/x64" -Force
-              Write-Host "Copied $($f.Name) to NativeLibs/x64"
-            }
-          }
+      - name: Save Native Dependencies Cache
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            NativeLibs/x64
+            .vcpkg-bincache
+          key: native-deps-${{ runner.os }}-x64-${{ env.SDL2_VERSION }}-${{ env.FFMPEG_VERSION }}-${{ hashFiles('.github/scripts/install-native-deps.ps1') }}
 
       - name: Restore NuGet packages
         run: |
