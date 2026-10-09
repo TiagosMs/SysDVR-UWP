@@ -56,9 +56,9 @@ jobs:
           path: |
             NativeLibs/x64
             .vcpkg-bincache
-          key: native-deps-${{ runner.os }}-x64-${{ env.SDL2_VERSION }}-${{ env.FFMPEG_VERSION }}-${{ hashFiles('.github/scripts/install-native-deps.ps1') }}
+          key: native-deps-${{ runner.os }}-x64-v2-${{ env.SDL2_VERSION }}-${{ env.FFMPEG_VERSION }}-${{ hashFiles('.github/scripts/install-native-deps.ps1', 'triplets/x64-uwp-dynamic.cmake') }}
           restore-keys: |
-            native-deps-${{ runner.os }}-x64-${{ env.SDL2_VERSION }}-${{ env.FFMPEG_VERSION }}-
+            native-deps-${{ runner.os }}-x64-v2-${{ env.SDL2_VERSION }}-${{ env.FFMPEG_VERSION }}-
 
       - name: Build / Install Native Dependencies (SDL2 + FFmpeg)
         if: steps.native-cache.outputs.cache-hit != 'true'
@@ -73,7 +73,7 @@ jobs:
           path: |
             NativeLibs/x64
             .vcpkg-bincache
-          key: native-deps-${{ runner.os }}-x64-${{ env.SDL2_VERSION }}-${{ env.FFMPEG_VERSION }}-${{ hashFiles('.github/scripts/install-native-deps.ps1') }}
+          key: native-deps-${{ runner.os }}-x64-v2-${{ env.SDL2_VERSION }}-${{ env.FFMPEG_VERSION }}-${{ hashFiles('.github/scripts/install-native-deps.ps1', 'triplets/x64-uwp-dynamic.cmake') }}
 
       - name: Restore NuGet packages
         run: |
@@ -110,6 +110,31 @@ jobs:
             /p:PackageCertificateKeyFile=SysDVR_Dev.pfx `
             /p:PackageCertificatePassword=SysDVRPass123! `
             /p:UseDotNetNativeToolchain=false
+
+      - name: Verify AppX Package Native Dependencies
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $pkg = Get-ChildItem AppPackages -Recurse -Include *.msix,*.appx | Select-Object -First 1
+          if (-not $pkg) {
+            throw "Nenhum pacote .msix ou .appx encontrado em AppPackages."
+          }
+          Write-Host "Verificando conteudo do pacote: $($pkg.FullName)"
+          $zip = [IO.Compression.ZipFile]::OpenRead($pkg.FullName)
+          $names = $zip.Entries.Name
+          $zip.Dispose()
+          Write-Host "Arquivos presentes no pacote:"
+          $names | Sort-Object | ForEach-Object { Write-Host " - $_" }
+
+          if (-not ($names -contains "SDL2.dll")) {
+            throw "Faltou SDL2.dll no pacote"
+          }
+          foreach ($lib in 'avcodec','avutil','swscale','swresample') {
+            if (-not ($names -match "^$lib(-\d+)?\.dll$")) {
+              throw "Faltou $lib no pacote"
+            }
+          }
+          Write-Host "Verificacao de DLLs nativas concluida com sucesso!"
 
       - name: Upload AppX Artifact
         uses: actions/upload-artifact@v4

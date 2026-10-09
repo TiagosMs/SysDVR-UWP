@@ -52,20 +52,24 @@
       <Link>SDL2.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="NativeLibs\x64\avcodec-61.dll" Condition="Exists('NativeLibs\x64\avcodec-61.dll')">
-      <Link>avcodec-61.dll</Link>
+    <Content Include="NativeLibs\x64\avcodec-*.dll">
+      <Link>%(FileName)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="NativeLibs\x64\avutil-59.dll" Condition="Exists('NativeLibs\x64\avutil-59.dll')">
-      <Link>avutil-59.dll</Link>
+    <Content Include="NativeLibs\x64\avutil-*.dll">
+      <Link>%(FileName)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="NativeLibs\x64\swscale-8.dll" Condition="Exists('NativeLibs\x64\swscale-8.dll')">
-      <Link>swscale-8.dll</Link>
+    <Content Include="NativeLibs\x64\swscale-*.dll">
+      <Link>%(FileName)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="NativeLibs\x64\swresample-5.dll" Condition="Exists('NativeLibs\x64\swresample-5.dll')">
-      <Link>swresample-5.dll</Link>
+    <Content Include="NativeLibs\x64\swresample-*.dll">
+      <Link>%(FileName)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="NativeLibs\x64\*.dll" Exclude="NativeLibs\x64\SDL2.dll;NativeLibs\x64\avcodec-*.dll;NativeLibs\x64\avutil-*.dll;NativeLibs\x64\swscale-*.dll;NativeLibs\x64\swresample-*.dll">
+      <Link>%(FileName)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
