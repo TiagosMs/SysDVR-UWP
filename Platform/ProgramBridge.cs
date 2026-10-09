@@ -15,7 +15,7 @@ namespace SysDVR.Client
 
         public static SDLContext SdlCtx = null!;
         public static Options Options = new();
-        public static StringTable Strings = new();
+        internal static StringTable Strings = new();
 
         public static void DebugLog(string message)
         {
@@ -29,3 +29,11 @@ namespace SysDVR.Client
         }
     }
 }
+
+#if !NET5_0_OR_GREATER
+namespace System.Runtime.CompilerServices
+{
+    // Required for C# 9+ init properties in .NET Standard 2.0 / UWP
+    internal static class IsExternalInit { }
+}
+#endif

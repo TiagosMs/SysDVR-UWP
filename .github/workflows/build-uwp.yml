@@ -22,13 +22,14 @@ jobs:
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v2
 
-      - name: Cache vcpkg x64-uwp artifacts
+      - name: Cache vcpkg & native libraries
         uses: actions/cache@v4
-        id: vcpkg-cache
+        id: native-cache
         with:
           path: |
+            NativeLibs/x64
             ${{ env.VCPKG_INSTALLATION_ROOT }}/installed/x64-uwp
-          key: ${{ runner.os }}-vcpkg-uwp-ffmpeg-sdl2-${{ hashFiles('Setup-NativeDependencies.ps1') }}
+          key: ${{ runner.os }}-vcpkg-uwp-ffmpeg-sdl2-v3
           restore-keys: |
             ${{ runner.os }}-vcpkg-uwp-ffmpeg-sdl2-
 
@@ -36,8 +37,15 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path "NativeLibs/x64" -Force | Out-Null
-          
-          # Install via pre-installed vcpkg if not cached
+
+          $existing = Get-ChildItem -Path "NativeLibs/x64" -Filter "SDL2.dll" -ErrorAction SilentlyContinue
+          if ($existing) {
+            Write-Host "Native libraries found in NativeLibs/x64. Skipping compilation."
+            Get-ChildItem -Path "NativeLibs/x64"
+            return
+          }
+
+          # Install via pre-installed vcpkg if not cached in installed/x64-uwp
           if (-not (Test-Path "$env:VCPKG_INSTALLATION_ROOT/installed/x64-uwp/bin/SDL2.dll")) {
             Write-Host "Compiling SDL2 and FFmpeg for x64-uwp via vcpkg..."
             & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install `
@@ -61,7 +69,9 @@ jobs:
           }
 
       - name: Restore NuGet packages
-        run: nuget restore SysDVR.UWP.sln
+        run: |
+          nuget restore SysDVR.UWP.sln
+          msbuild SysDVR.UWP.csproj /t:Restore /p:TargetPlatformVersion=10.0.22621.0 /p:TargetPlatformMinVersion=10.0.19041.0
 
       - name: Generate Self-Signed Certificate for Xbox
         shell: pwsh
@@ -83,6 +93,8 @@ jobs:
           msbuild SysDVR.UWP.csproj `
             /p:Configuration=Release `
             /p:Platform=x64 `
+            /p:TargetPlatformVersion=10.0.22621.0 `
+            /p:TargetPlatformMinVersion=10.0.19041.0 `
             /p:AppxBundle=Never `
             /p:AppxPackageDir=AppPackages\ `
             /p:UapAppxPackageBuildMode=SideloadOnly `
