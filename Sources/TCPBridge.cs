@@ -1,6 +1,7 @@
 using SysDVR.Client.Core;
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -224,8 +225,15 @@ namespace SysDVR.Client.Sources
 					tcs.TrySetCanceled();
 				});
 
+				IPAddress ip;
+				if (!IPAddress.TryParse(host, out ip))
+				{
+					var addresses = await Dns.GetHostAddressesAsync(host).ConfigureAwait(false);
+					ip = addresses[0];
+				}
+
 				var args = new SocketAsyncEventArgs();
-				args.RemoteEndPoint = new DnsEndPoint(host, port);
+				args.RemoteEndPoint = new IPEndPoint(ip, port);
 				args.Completed += (s, e) =>
 				{
 					if (e.SocketError == SocketError.Success)

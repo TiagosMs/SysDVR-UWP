@@ -129,3 +129,45 @@ namespace System.Runtime.InteropServices
         }
     }
 }
+
+namespace System.Buffers
+{
+    public static class BinaryPrimitives
+    {
+        public static uint ReadUInt32LittleEndian(ReadOnlySpan<byte> source)
+        {
+            return (uint)(source[0] | (source[1] << 8) | (source[2] << 16) | (source[3] << 24));
+        }
+
+        public static ulong ReadUInt64LittleEndian(ReadOnlySpan<byte> source)
+        {
+            return (ulong)source[0]
+                | ((ulong)source[1] << 8)
+                | ((ulong)source[2] << 16)
+                | ((ulong)source[3] << 24)
+                | ((ulong)source[4] << 32)
+                | ((ulong)source[5] << 40)
+                | ((ulong)source[6] << 48)
+                | ((ulong)source[7] << 56);
+        }
+
+        public static void WriteUInt32LittleEndian(Span<byte> destination, uint value)
+        {
+            destination[0] = (byte)value;
+            destination[1] = (byte)(value >> 8);
+            destination[2] = (byte)(value >> 16);
+            destination[3] = (byte)(value >> 24);
+        }
+    }
+}
+
+namespace System.Buffers.Binary
+{
+    public static class BinaryPrimitives
+    {
+        public static uint ReadUInt32LittleEndian(ReadOnlySpan<byte> source) => System.Buffers.BinaryPrimitives.ReadUInt32LittleEndian(source);
+        public static ulong ReadUInt64LittleEndian(ReadOnlySpan<byte> source) => System.Buffers.BinaryPrimitives.ReadUInt64LittleEndian(source);
+        public static void WriteUInt32LittleEndian(Span<byte> destination, uint value) => System.Buffers.BinaryPrimitives.WriteUInt32LittleEndian(destination, value);
+    }
+}
+
