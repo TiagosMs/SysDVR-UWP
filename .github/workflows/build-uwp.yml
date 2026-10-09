@@ -1,0 +1,102 @@
+name: Build SysDVR UWP (Xbox Dev Mode)
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build x64 UWP AppX
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Cache vcpkg x64-uwp artifacts
+        uses: actions/cache@v4
+        id: vcpkg-cache
+        with:
+          path: |
+            ${{ env.VCPKG_INSTALLATION_ROOT }}/installed/x64-uwp
+          key: ${{ runner.os }}-vcpkg-uwp-ffmpeg-sdl2-${{ hashFiles('Setup-NativeDependencies.ps1') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-uwp-ffmpeg-sdl2-
+
+      - name: Build / Install Native Dependencies (SDL2 + FFmpeg)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "NativeLibs/x64" -Force | Out-Null
+          
+          # Install via pre-installed vcpkg if not cached
+          if (-not (Test-Path "$env:VCPKG_INSTALLATION_ROOT/installed/x64-uwp/bin/SDL2.dll")) {
+            Write-Host "Compiling SDL2 and FFmpeg for x64-uwp via vcpkg..."
+            & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install `
+              sdl2:x64-uwp `
+              ffmpeg[core,avcodec,swscale,swresample]:x64-uwp `
+              --recurse
+          } else {
+            Write-Host "Using cached vcpkg libraries."
+          }
+
+          # Copy DLLs to NativeLibs/x64
+          $vcpkgBin = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-uwp/bin"
+          $patterns = @("SDL2.dll", "avcodec*.dll", "avutil*.dll", "swscale*.dll", "swresample*.dll")
+
+          foreach ($pattern in $patterns) {
+            $files = Get-ChildItem -Path $vcpkgBin -Filter $pattern -ErrorAction SilentlyContinue
+            foreach ($f in $files) {
+              Copy-Item -Path $f.FullName -Destination "NativeLibs/x64" -Force
+              Write-Host "Copied $($f.Name) to NativeLibs/x64"
+            }
+          }
+
+      - name: Restore NuGet packages
+        run: nuget restore SysDVR.UWP.sln
+
+      - name: Generate Self-Signed Certificate for Xbox
+        shell: pwsh
+        run: |
+          $cert = New-SelfSignedCertificate `
+            -Type Custom `
+            -Subject "CN=SysDVR-Dev" `
+            -KeyUsage DigitalSignature `
+            -FriendlyName "SysDVR Dev" `
+            -CertStoreLocation "Cert:\CurrentUser\My" `
+            -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
+
+          $pwd = ConvertTo-SecureString -String "SysDVRPass123!" -Force -AsPlainText
+          Export-PfxCertificate -Cert $cert -FilePath "SysDVR_Dev.pfx" -Password $pwd
+          Export-Certificate -Cert $cert -FilePath "SysDVR_Dev.cer"
+
+      - name: Build UWP AppX Package
+        run: |
+          msbuild SysDVR.UWP.csproj `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /p:AppxBundle=Never `
+            /p:AppxPackageDir=AppPackages\ `
+            /p:UapAppxPackageBuildMode=SideloadOnly `
+            /p:AppxPackageSigningEnabled=true `
+            /p:PackageCertificateKeyFile=SysDVR_Dev.pfx `
+            /p:PackageCertificatePassword=SysDVRPass123! `
+            /p:UseDotNetNativeToolchain=true
+
+      - name: Upload AppX Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SysDVR-UWP-Xbox-x64
+          path: |
+            AppPackages/**/*.appx
+            AppPackages/**/*.msix
+            AppPackages/**/*.cer
+            SysDVR_Dev.cer

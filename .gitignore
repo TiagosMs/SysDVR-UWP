@@ -1,0 +1,15 @@
+# Visual Studio & MSBuild
+.vs/
+bin/
+obj/
+AppPackages/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Certificates & Secrets
+*.pfx
+
+# vcpkg
+vcpkg_installed/
