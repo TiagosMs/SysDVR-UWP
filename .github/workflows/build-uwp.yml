@@ -16,11 +16,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup MSVC & UWP Dev Environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+          uwp: true
+
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v2
+
+      - name: Detect Windows SDK
+        shell: pwsh
+        run: |
+          $uapDir = "C:\Program Files (x86)\Windows Kits\10\Platforms\UAP"
+          if (Test-Path $uapDir) {
+            $sdk = (Get-ChildItem $uapDir | Sort-Object Name -Descending | Select-Object -First 1).Name
+            Write-Host "Found installed UAP Windows SDK: $sdk"
+            "WINDOWS_SDK_VERSION=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append
+          } else {
+            Write-Host "UAP directory not found, defaulting to 10.0.22621.0"
+            "WINDOWS_SDK_VERSION=10.0.22621.0" | Out-File -FilePath $env:GITHUB_ENV -Append
+          }
 
       - name: Cache vcpkg & native libraries
         uses: actions/cache@v4
@@ -71,7 +90,7 @@ jobs:
       - name: Restore NuGet packages
         run: |
           nuget restore SysDVR.UWP.sln
-          msbuild SysDVR.UWP.csproj /t:Restore /p:TargetPlatformVersion=10.0.22621.0 /p:TargetPlatformMinVersion=10.0.19041.0
+          msbuild SysDVR.UWP.csproj /t:Restore /p:TargetPlatformVersion=${{ env.WINDOWS_SDK_VERSION }} /p:TargetPlatformMinVersion=10.0.19041.0
 
       - name: Generate Self-Signed Certificate for Xbox
         shell: pwsh
@@ -93,7 +112,7 @@ jobs:
           msbuild SysDVR.UWP.csproj `
             /p:Configuration=Release `
             /p:Platform=x64 `
-            /p:TargetPlatformVersion=10.0.22621.0 `
+            /p:TargetPlatformVersion=${{ env.WINDOWS_SDK_VERSION }} `
             /p:TargetPlatformMinVersion=10.0.19041.0 `
             /p:AppxBundle=Never `
             /p:AppxPackageDir=AppPackages\ `

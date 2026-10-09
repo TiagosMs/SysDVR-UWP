@@ -13,6 +13,8 @@
     <TargetPlatformIdentifier>UAP</TargetPlatformIdentifier>
     <TargetPlatformVersion Condition=" '$(TargetPlatformVersion)' == '' ">10.0.22621.0</TargetPlatformVersion>
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <WindowsSdkDir Condition="'$(WindowsSdkDir)' == ''">C:\Program Files (x86)\Windows Kits\10\</WindowsSdkDir>
+    <TargetPlatformSdkPath Condition="'$(TargetPlatformSdkPath)' == ''">$(WindowsSdkDir)Platforms\UAP\$(TargetPlatformVersion)\</TargetPlatformSdkPath>
     <MinimumVisualStudioVersion>14</MinimumVisualStudioVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{A5A43C5B-DE2A-4C0C-9213-0A381AF9435A};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
@@ -100,10 +102,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="**\*.cs" Exclude="obj\**;bin\**" />
-    <Compile Update="**\*.xaml.cs">
-      <DependentUpon>%(Filename)</DependentUpon>
+    <Compile Include="App.xaml.cs">
+      <DependentUpon>App.xaml</DependentUpon>
     </Compile>
+    <Compile Include="MainPage.xaml.cs">
+      <DependentUpon>MainPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Core\**\*.cs" />
+    <Compile Include="Sources\**\*.cs" />
+    <Compile Include="Targets\**\*.cs" />
+    <Compile Include="Platform\**\*.cs" />
+    <Compile Include="ThirdParty\**\*.cs" />
   </ItemGroup>
 
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
