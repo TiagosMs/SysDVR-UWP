@@ -115,7 +115,7 @@ jobs:
         shell: pwsh
         run: |
           Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $pkg = Get-ChildItem AppPackages -Recurse -Include *.msix,*.appx | Select-Object -First 1
+          $pkg = Get-ChildItem AppPackages -Recurse -Include "SysDVR*.msix","SysDVR*.appx" | Where-Object { $_.FullName -notmatch "Dependencies" } | Select-Object -First 1
           if (-not $pkg) {
             throw "Nenhum pacote .msix ou .appx encontrado em AppPackages."
           }
