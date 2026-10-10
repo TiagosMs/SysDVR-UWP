@@ -3,13 +3,30 @@
 bin/
 obj/
 AppPackages/
+BundleArtifacts/
+_pkg/
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
 
-# Certificates & Secrets
+# Packages & Archives
+*.zip
+*.msix
+*.appx
+*.appxbundle
+*.msixbundle
+
+# Certificates & Secrets (Keep certs out of repo)
 *.pfx
+*.cer
 
 # vcpkg
 vcpkg_installed/
+.vcpkg-bincache/
+
+# OS generated
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
