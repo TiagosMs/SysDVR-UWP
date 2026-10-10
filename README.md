@@ -42,4 +42,13 @@ Esse script baixa e compila as versões compatíveis com o container UWP do SDL2
 ### 5. Utilização
 1. No Switch: execute o sysmodule do SysDVR no modo TCP (padrão nas versões 6.0+).
 2. No Xbox: abra o app **SysDVR**, informe o IP local do Nintendo Switch e clique em **Conectar (TCP)**.
-3. O stream H.264 iniciará com decodificação por hardware/FFmpeg e renderização Direct3D 11 via SDL2.
+3. O stream H.264 iniciará com decodificação via FFmpeg diretamente na GPU do Xbox via XAML `WriteableBitmap` e áudio de baixa latência via SDL2.
+
+---
+
+## 👥 Contribuidores & Créditos
+
+- **[Tiago](https://github.com/TiagosMs)** — Desenvolvedor e mantenedor do projeto
+- **[exelix11](https://github.com/exelix11/SysDVR)** — Autor do SysDVR original
+- **Gemini (Google DeepMind)** — Co-autor: engenharia reversa do pipeline de vídeo nativo UWP, correção de renderização e automação de CI/CD
+- **Claude (Anthropic)** — Co-autor: suporte arquitetural, documentação e porte inicial
