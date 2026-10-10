@@ -115,7 +115,7 @@ namespace SysDVR.UWP
 
                 if (_playerManager.HasVideo)
                 {
-                    _videoPlayer = new VideoPlayer(SysDVR.Client.Program.Options.DecoderName);
+                    _videoPlayer = new VideoPlayer(null);
                     _videoPlayer.Decoder.SyncHelper = sync;
                     _playerManager.VideoTarget.UseContext(_videoPlayer.Decoder);
                 }
