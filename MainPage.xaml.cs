@@ -291,7 +291,7 @@ namespace SysDVR.UWP
                 var options = new StreamingOptions
                 {
                     Kind = AudioToggle.IsOn ? StreamKind.Both : StreamKind.Video,
-                    AudioBatching = 3,
+                    AudioBatching = LowLatencyToggle.IsOn ? 1 : 3,
                     UseNALReplay = true
                 };
 
@@ -330,7 +330,7 @@ namespace SysDVR.UWP
 
                 if (_playerManager.HasVideo)
                 {
-                    _videoPlayer = new VideoPlayer(null, LowLatencyToggle.IsOn);
+                    _videoPlayer = new VideoPlayer(null);
                     _videoPlayer.Decoder.SyncHelper = sync;
                     _playerManager.VideoTarget.UseContext(_videoPlayer.Decoder);
                 }

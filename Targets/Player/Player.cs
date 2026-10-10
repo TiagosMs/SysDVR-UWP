@@ -174,15 +174,12 @@ namespace SysDVR.Client.Targets.Player
         private readonly unsafe byte*[] _srcData = new byte*[4];
         private readonly int[] _srcLinesizes = new int[4];
 
-        public bool LowLatency { get; set; } = true;
-
-        public VideoPlayer(string? preferredDecoderName, bool lowLatency = true)
+        public VideoPlayer(string? preferredDecoderName)
         {
-            LowLatency = lowLatency;
-            InitVideoDecoder(preferredDecoderName, lowLatency);
+            InitVideoDecoder(preferredDecoderName);
         }
 
-        unsafe void InitVideoDecoder(string? name, bool lowLatency)
+        unsafe void InitVideoDecoder(string? name)
         {
             AVCodec* codec = null;
 
@@ -200,11 +197,11 @@ namespace SysDVR.Client.Targets.Player
             if (codec == null)
                 throw new Exception("Couldn't find any compatible video codecs");
 
-            Decoder = CreateDecoderContext(codec, lowLatency);
+            Decoder = CreateDecoderContext(codec);
             DecoderName = Marshal.PtrToStringAnsi((IntPtr)codec->name) ?? "h264";
         }
 
-        static unsafe DecoderContext CreateDecoderContext(AVCodec* codec, bool lowLatency)
+        static unsafe DecoderContext CreateDecoderContext(AVCodec* codec)
         {
             if (codec == null)
                 throw new Exception("Codec can't be null");
@@ -221,12 +218,6 @@ namespace SysDVR.Client.Targets.Player
             codectx->codec_id = codec->id;
             codectx->codec_type = AVMediaType.AVMEDIA_TYPE_VIDEO;
             codectx->bit_rate = 0;
-
-            if (lowLatency)
-            {
-                codectx->flags |= AV_CODEC_FLAG_LOW_DELAY;
-                codectx->flags2 |= AV_CODEC_FLAG2_FAST;
-            }
 
             // Some decoders break without this
             codectx->width = StreamInfo.VideoWidth;
