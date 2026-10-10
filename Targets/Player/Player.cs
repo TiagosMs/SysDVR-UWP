@@ -226,11 +226,6 @@ namespace SysDVR.Client.Targets.Player
             {
                 codectx->flags |= AV_CODEC_FLAG_LOW_DELAY;
                 codectx->flags2 |= AV_CODEC_FLAG2_FAST;
-                codectx->thread_count = 1;
-                if (codectx->priv_data != null)
-                {
-                    try { av_opt_set(codectx->priv_data, "tune", "zerolatency", 0); } catch { }
-                }
             }
 
             // Some decoders break without this
@@ -280,24 +275,8 @@ namespace SysDVR.Client.Targets.Player
                 return false;
             }
 
-            if (LowLatency)
-            {
-                int drainCount = 0;
-                while (drainCount < 4)
-                {
-                    int nextRet = 0;
-                    lock (Decoder.CodecLock)
-                        nextRet = avcodec_receive_frame(Decoder.CodecCtx, Decoder.ReceiveFrame);
-
-                    if (nextRet != 0)
-                        break;
-
-                    drainCount++;
-                }
-            }
-
             var frame = Decoder.ReceiveFrame;
-            if (frame == null || frame->width <= 0 || frame->height <= 0)
+            if (frame == null || frame->width <= 0 || frame->height <= 0 || frame->data[0] == null)
             {
                 Decoder.OnFrameEvent.Set();
                 return false;
