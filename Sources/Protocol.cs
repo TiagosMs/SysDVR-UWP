@@ -229,15 +229,15 @@ namespace SysDVR.Client.Sources
             ulong Context3 = System.Buffers.BinaryPrimitives.ReadUInt64LittleEndian(packet.Buffer.Span.Slice(24));
 
             if (ErrorType == 1)
-                return $"Video capture failed with code 0x{ErrorCode:x} requested size was 0x{Context1:x}";
+                return $"A captura de vídeo foi bloqueada pelo Switch ou pelo jogo (código 0x{ErrorCode:x}).";
             else if (ErrorType is 2 or 3)
-                return $"Audio capture failed with code 0x{ErrorCode:x} requested size was 0x{Context1:x}, iteration was {Context2}";
+                return $"A captura de áudio falhou no console (código 0x{ErrorCode:x}).";
             else if (ErrorType == 4)
-                return $"Grc:d begin from video thread failed with code 0x{ErrorCode:x}";
+                return $"Serviço grc:d de vídeo indisponível no Switch (código 0x{ErrorCode:x}). O jogo pode proibir gravação.";
             else if (ErrorType == 5)
-                return $"Grc:d begin from audio thread failed with code 0x{ErrorCode:x}";
+                return $"Serviço grc:d de áudio indisponível no Switch (código 0x{ErrorCode:x}).";
 
-            return $"Unknown error type 0x{ErrorType:x} 0x{ErrorCode:x} 0x{Context1:x} 0x{Context2:x} 0x{Context3:x}";
+            return $"Erro reportado pelo Switch: Tipo 0x{ErrorType:x}, Código 0x{ErrorCode:x}";
         }
     }
 

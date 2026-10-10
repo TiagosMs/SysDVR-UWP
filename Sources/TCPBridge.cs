@@ -12,6 +12,8 @@ namespace SysDVR.Client.Sources
 {
 	class TCPBridgeSource : StreamingSource
 	{
+		public static long TotalBytesReceived;
+
 		const int MaxConnectionAttempts = 5;
 		const int ConnFailDelayMs = 2000;
 
@@ -267,9 +269,10 @@ namespace SysDVR.Client.Sources
 						socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 						try
 						{
-							socket.ReceiveTimeout = 2000;
-							socket.SendTimeout = 2000;
-							socket.ReceiveBufferSize = PacketHeader.MaxTransferSize;
+							socket.ReceiveTimeout = 5000;
+							socket.SendTimeout = 5000;
+							socket.ReceiveBufferSize = 1024 * 1024; // 1 MB buffer
+							socket.SendBufferSize = 64 * 1024;
 							socket.NoDelay = true;
 						}
 						catch { }
@@ -300,6 +303,8 @@ namespace SysDVR.Client.Sources
 					int r = await socket.ReceiveAsync(new ArraySegment<byte>(data, offset, length), SocketFlags.None).ConfigureAwait(false);
 					if (r <= 0)
 						throw new Exception("Socket communication error");
+
+					Interlocked.Add(ref TotalBytesReceived, r);
 
 					length -= r;
 					offset += r;

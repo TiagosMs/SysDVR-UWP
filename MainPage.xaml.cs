@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading;
@@ -46,6 +47,10 @@ namespace SysDVR.UWP
         private int _renderPending = 0;
         private bool _isStreaming = false;
 
+        private CancellationTokenSource? _reconnectCts;
+        private bool _isUserDisconnecting = false;
+        private bool _isReconnecting = false;
+
         private readonly NetworkScan _networkScan = new();
         private readonly List<DeviceInfo> _foundDevices = new();
 
@@ -76,6 +81,7 @@ namespace SysDVR.UWP
         {
             Window.Current.CoreWindow.KeyDown -= CoreWindow_KeyDown;
             _networkScan.StopScanning();
+            _reconnectCts?.Cancel();
         }
 
         private void CoreWindow_KeyDown(CoreWindow sender, KeyEventArgs args)
@@ -99,7 +105,7 @@ namespace SysDVR.UWP
                     break;
 
                 case VirtualKey.GamepadA:
-                    if (!_isStreaming && ConnectButton.IsEnabled)
+                    if (!_isStreaming && !_isReconnecting && ConnectButton.IsEnabled)
                     {
                         args.Handled = true;
                         OnConnectClick(this, null!);
@@ -107,9 +113,12 @@ namespace SysDVR.UWP
                     break;
 
                 case VirtualKey.GamepadB:
-                    if (_isStreaming)
+                    if (_isStreaming || _isReconnecting)
                     {
                         args.Handled = true;
+                        _isUserDisconnecting = true;
+                        _reconnectCts?.Cancel();
+                        _reconnectCts = null;
                         StopStreaming("Desconectado via controle (Gamepad B)");
                     }
                     else if (TopHeader.Visibility == Visibility.Collapsed)
@@ -145,6 +154,10 @@ namespace SysDVR.UWP
                 {
                     LowLatencyToggle.IsOn = lowLatencyOn;
                 }
+                if (values.TryGetValue("AutoReconnect", out var savedAutoRec) && savedAutoRec is bool autoRecOn)
+                {
+                    AutoReconnectToggle.IsOn = autoRecOn;
+                }
             }
             catch (Exception ex)
             {
@@ -160,6 +173,7 @@ namespace SysDVR.UWP
                 values["LastIp"] = IpTextBox.Text?.Trim();
                 values["AudioEnabled"] = AudioToggle.IsOn;
                 values["LowLatency"] = LowLatencyToggle.IsOn;
+                values["AutoReconnect"] = AutoReconnectToggle.IsOn;
             }
             catch (Exception ex)
             {
@@ -182,7 +196,7 @@ namespace SysDVR.UWP
             if (_networkScan.IsScanning)
             {
                 _networkScan.StopScanning();
-                ScanButton.Content = "[X] Buscar Switch";
+                ScanButton.Content = "[X] Buscar na Rede";
                 StatusTextBlock.Text = "Busca de rede cancelada.";
             }
             else
@@ -225,7 +239,7 @@ namespace SysDVR.UWP
             {
                 if (!isScanning)
                 {
-                    ScanButton.Content = "[X] Buscar Switch";
+                    ScanButton.Content = "[X] Buscar na Rede";
                     if (_foundDevices.Count == 0)
                     {
                         StatusTextBlock.Text = "Nenhuma Switch encontrada. Verifique se o SysDVR está rodando na mesma rede.";
@@ -256,7 +270,7 @@ namespace SysDVR.UWP
             }
         }
 
-        private async void OnConnectClick(object sender, RoutedEventArgs e)
+        private void OnConnectClick(object sender, RoutedEventArgs e)
         {
             var ip = IpTextBox.Text.Trim();
             if (string.IsNullOrWhiteSpace(ip))
@@ -266,7 +280,15 @@ namespace SysDVR.UWP
             }
 
             SaveSettings();
+            _isUserDisconnecting = false;
+            _reconnectCts?.Cancel();
+            _reconnectCts = null;
 
+            StartStreaming(ip);
+        }
+
+        private async void StartStreaming(string ip)
+        {
             if (_networkScan.IsScanning)
             {
                 _networkScan.StopScanning();
@@ -322,7 +344,7 @@ namespace SysDVR.UWP
                     {
                         Debug.WriteLine($"[SysDVR Fatal Error] {ex}");
                         SysDVR.Client.Program.DebugLog($"[SysDVR Fatal Error] {ex}");
-                        StopStreaming($"Erro Fatal ({ex.GetType().Name}): {ex.Message}");
+                        HandleDisconnectOrAutoReconnect(ip, $"Erro ({ex.GetType().Name}): {ex.Message}");
                     });
                 };
 
@@ -346,6 +368,7 @@ namespace SysDVR.UWP
 
                 _playerManager.Begin();
                 _isStreaming = true;
+                _isReconnecting = false;
 
                 _renderCts = new CancellationTokenSource();
                 var renderToken = _renderCts.Token;
@@ -353,7 +376,7 @@ namespace SysDVR.UWP
 
                 IdleOverlay.Visibility = Visibility.Collapsed;
                 TopHeader.Visibility = Visibility.Visible;
-                StatusTextBlock.Text = $"Transmitindo de {ip} (TCP 9911) | Latência: {(LowLatencyToggle.IsOn ? "Baixa" : "Padrão")}";
+                StatusTextBlock.Text = $"Transmitindo de {ip} (TCP 9911)";
             }
             catch (Exception ex)
             {
@@ -370,8 +393,91 @@ namespace SysDVR.UWP
                     errMessage = $"Erro ({ex.GetType().Name}): {ex.Message}";
                 }
 
-                StopStreaming(errMessage);
+                HandleDisconnectOrAutoReconnect(ip, errMessage);
             }
+        }
+
+        private void HandleDisconnectOrAutoReconnect(string ip, string reason)
+        {
+            if (_isUserDisconnecting || !AutoReconnectToggle.IsOn)
+            {
+                StopStreaming(reason);
+                return;
+            }
+
+            TeardownStreamingSession();
+
+            _isStreaming = false;
+            _isReconnecting = true;
+
+            StatusTextBlock.Text = $"Conexão interrompida (Switch em repouso?). Reconectando em {ip}... [B] Cancelar";
+            FpsTextBlock.Text = "Reconectando...";
+            DisconnectButton.IsEnabled = true;
+
+            _reconnectCts?.Cancel();
+            _reconnectCts = new CancellationTokenSource();
+            var token = _reconnectCts.Token;
+
+            _ = Task.Run(async () =>
+            {
+                int attempts = 0;
+                while (!token.IsCancellationRequested && !_isUserDisconnecting)
+                {
+                    attempts++;
+                    try
+                    {
+                        await Task.Delay(2500, token).ConfigureAwait(false);
+                        if (token.IsCancellationRequested || _isUserDisconnecting) break;
+
+                        _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                        {
+                            StatusTextBlock.Text = $"Tentativa {attempts}: Reconectando a {ip}:9911... [B] Cancelar";
+                        });
+
+                        // Sonda rápida para verificar se porta 9911 do Switch acordou
+                        using (var probe = new TcpClient())
+                        {
+                            using var timeoutCts = new CancellationTokenSource(1500);
+                            using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, timeoutCts.Token);
+                            var connectTask = probe.ConnectAsync(ip, 9911);
+                            var completed = await Task.WhenAny(connectTask, Task.Delay(1500, linked.Token)).ConfigureAwait(false);
+                            if (completed != connectTask || !probe.Connected)
+                            {
+                                continue;
+                            }
+                        }
+
+                        // Switch acordou! Restabelece streaming
+                        _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                        {
+                            if (!_isUserDisconnecting && !token.IsCancellationRequested)
+                            {
+                                _isReconnecting = false;
+                                StatusTextBlock.Text = "Switch acordou! Restabelecendo stream...";
+                                StartStreaming(ip);
+                            }
+                        });
+                        return;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch
+                    {
+                        // Continua tentando
+                    }
+                }
+
+                _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    if (_isReconnecting)
+                    {
+                        _isReconnecting = false;
+                        StopStreaming("Reconexão cancelada");
+                    }
+                });
+            }, token);
         }
 
         private unsafe void StartRenderLoop(CancellationToken token)
@@ -404,6 +510,7 @@ namespace SysDVR.UWP
             var fpsWatch = Stopwatch.StartNew();
             int frameCount = 0;
             long lastFpsTime = 0;
+            long lastBytes = Interlocked.Read(ref TCPBridgeSource.TotalBytesReceived);
 
             while (!token.IsCancellationRequested)
             {
@@ -457,11 +564,17 @@ namespace SysDVR.UWP
                 {
                     int fps = frameCount;
                     frameCount = 0;
+
+                    long currentBytes = Interlocked.Read(ref TCPBridgeSource.TotalBytesReceived);
+                    long bytesThisSec = Math.Max(0, currentBytes - lastBytes);
+                    lastBytes = currentBytes;
+                    double mbps = (bytesThisSec * 8.0) / 1_000_000.0;
+
                     lastFpsTime = fpsWatch.ElapsedMilliseconds;
 
                     _ = Dispatcher.RunAsync(CoreDispatcherPriority.Low, () =>
                     {
-                        FpsTextBlock.Text = $"{fps} FPS";
+                        FpsTextBlock.Text = $"{fps} FPS  •  {mbps:F1} Mbps";
                     });
                 }
             }
@@ -469,6 +582,9 @@ namespace SysDVR.UWP
 
         private void OnDisconnectClick(object sender, RoutedEventArgs e)
         {
+            _isUserDisconnecting = true;
+            _reconnectCts?.Cancel();
+            _reconnectCts = null;
             StopStreaming();
         }
 
@@ -484,20 +600,8 @@ namespace SysDVR.UWP
             OnFullScreenToggleClick(sender, e);
         }
 
-        public void StopStreaming(string? statusMessage = null)
+        private void TeardownStreamingSession()
         {
-            if (!_isStreaming && _cts == null)
-            {
-                if (statusMessage != null)
-                {
-                    _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
-                    {
-                        StatusTextBlock.Text = statusMessage;
-                    });
-                }
-                return;
-            }
-
             _isStreaming = false;
 
             try
@@ -520,14 +624,23 @@ namespace SysDVR.UWP
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Erro ao finalizar streaming: {ex.Message}");
-                SysDVR.Client.Program.DebugLog($"Erro ao finalizar streaming: {ex.Message}");
+                Debug.WriteLine($"Erro ao finalizar sessão: {ex.Message}");
             }
             finally
             {
                 _cts?.Dispose();
                 _cts = null;
             }
+        }
+
+        public void StopStreaming(string? statusMessage = null)
+        {
+            _isUserDisconnecting = true;
+            _reconnectCts?.Cancel();
+            _reconnectCts = null;
+            _isReconnecting = false;
+
+            TeardownStreamingSession();
 
             _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {

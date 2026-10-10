@@ -1,4 +1,4 @@
-﻿using SysDVR.Client.Sources;
+using SysDVR.Client.Sources;
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -315,17 +315,8 @@ namespace SysDVR.Client.Core
 					if (packet.Header.IsError)
 					{
 						var error = PacketErrorParser.GetPacketErrorAsString(packet);
-
-						if (Program.Options.Debug.Log)
-							OnErrorMessage?.Invoke(error);
-						else
-						{
-                            // Tracking these at least silently should be useful
-                            // On PC they will appear in the console window
-                            // On android they will appear in the logcat
-                            System.Diagnostics.Debug.WriteLine(error);
-						}
-
+						OnErrorMessage?.Invoke(error);
+						System.Diagnostics.Debug.WriteLine($"[SysDVR Packet Error] {error}");
 						packet.Buffer?.Free();
 					}
 					else if (packet.Header.IsAudio)
