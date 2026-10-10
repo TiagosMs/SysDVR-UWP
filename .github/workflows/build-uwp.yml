@@ -153,6 +153,8 @@ jobs:
           }
           Compress-Archive -Path "$pkgDir\*" -DestinationPath "SysDVR-UWP-Xbox-x64.zip" -Force
           Write-Host "ZIP criado com sucesso: SysDVR-UWP-Xbox-x64.zip"
+          # Copiar o pacote principal para upload individual limpo sem conflito de nomes
+          Get-ChildItem $pkgDir -Include "*.msix","*.appx" -File | Copy-Item -Destination . -Force
 
       - name: Upload AppX Artifact
         uses: actions/upload-artifact@v4
@@ -160,10 +162,8 @@ jobs:
           name: SysDVR-UWP-Xbox-x64
           path: |
             SysDVR-UWP-Xbox-x64.zip
-            AppPackages/**/*.appx
-            AppPackages/**/*.msix
-            AppPackages/**/*.cer
             SysDVR_Dev.cer
+            *.msix
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -172,8 +172,6 @@ jobs:
           name: SysDVR UWP ${{ github.ref_name }} (Xbox Dev Mode)
           files: |
             SysDVR-UWP-Xbox-x64.zip
-            AppPackages/**/*.appx
-            AppPackages/**/*.msix
-            AppPackages/**/*.cer
             SysDVR_Dev.cer
+            *.msix
           generate_release_notes: true
