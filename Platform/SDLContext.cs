@@ -56,6 +56,7 @@ namespace SysDVR.Client.Platform
         {
             Debug.WriteLine("Initializing SDL");
 
+            SDL_SetMainReady();
             SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK).AssertZero(SDL_GetError);
 
             SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
