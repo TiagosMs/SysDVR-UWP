@@ -6,6 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
+    RequiresPointer="Never"
     Background="#0F0F12">
 
     <Grid>
@@ -16,7 +17,7 @@
         </Grid.RowDefinitions>
 
         <!-- Top Header / Connection Controls -->
-        <Border x:Name="TopHeader" Grid.Row="0" Background="#18181F" Padding="24,16" BorderBrush="#2A2A36" BorderThickness="0,0,0,1">
+        <Border x:Name="TopHeader" Grid.Row="0" Background="#18181F" Padding="20,12" BorderBrush="#2A2A36" BorderThickness="0,0,0,1">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -26,22 +27,32 @@
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="SysDVR" FontSize="22" FontWeight="Bold" Foreground="#00E5FF" VerticalAlignment="Center"/>
-                    <TextBlock Text="UWP Xbox Edition" FontSize="14" Foreground="#8E8E9F" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Xbox Edition" FontSize="14" Foreground="#8E8E9F" Margin="10,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <TextBlock Text="Switch IP:" FontSize="16" Foreground="#D1D1DE" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <TextBox x:Name="IpTextBox" Width="220" FontSize="16" PlaceholderText="192.168.1.50" Text="192.168.1."
-                             Background="#242430" Foreground="White" BorderBrush="#3D3D4E" VerticalAlignment="Center"/>
-                    <Button x:Name="ConnectButton" Content="Conectar (TCP)" Click="OnConnectClick" Margin="14,0,0,0"
-                             Background="#00C853" Foreground="White" FontWeight="SemiBold" Padding="16,8"/>
-                    <Button x:Name="DisconnectButton" Content="Desconectar" Click="OnDisconnectClick" Margin="10,0,0,0"
-                             Background="#D50000" Foreground="White" FontWeight="SemiBold" Padding="16,8" IsEnabled="False"/>
+                    <TextBlock Text="Switch IP:" FontSize="15" Foreground="#D1D1DE" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBox x:Name="IpTextBox" Width="160" FontSize="15" PlaceholderText="192.168.1.50" Text="192.168.1."
+                             Background="#242430" Foreground="White" BorderBrush="#3D3D4E" VerticalAlignment="Center"
+                             TextChanged="OnIpTextChanged"/>
+                    
+                    <Button x:Name="ScanButton" Content="[X] Buscar Switch" Click="OnScanClick" Margin="8,0,0,0"
+                            Background="#2E2E40" Foreground="#00E5FF" FontWeight="SemiBold" Padding="12,8"/>
+
+                    <ComboBox x:Name="DeviceComboBox" Width="200" Margin="8,0,0,0" PlaceholderText="Switches encontradas..."
+                              Visibility="Collapsed" SelectionChanged="OnDeviceSelectionChanged"
+                              Background="#242430" Foreground="White" VerticalAlignment="Center"/>
+
+                    <Button x:Name="ConnectButton" Content="[A] Conectar" Click="OnConnectClick" Margin="8,0,0,0"
+                             Background="#00C853" Foreground="White" FontWeight="SemiBold" Padding="14,8"/>
+                    <Button x:Name="DisconnectButton" Content="[B] Desconectar" Click="OnDisconnectClick" Margin="8,0,0,0"
+                             Background="#D50000" Foreground="White" FontWeight="SemiBold" Padding="14,8" IsEnabled="False"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <ToggleSwitch x:Name="AudioToggle" Header="Áudio" IsOn="True" Foreground="#D1D1DE" Margin="0,0,10,0"/>
-                    <Button x:Name="FullScreenButton" Content="Tela Cheia" Click="OnFullScreenToggleClick" Margin="6,0,0,0"
+                    <ToggleSwitch x:Name="LowLatencyToggle" Header="Baixa Latência" IsOn="True" Foreground="#D1D1DE" Margin="0,0,10,0" Toggled="OnOptionToggled"/>
+                    <ToggleSwitch x:Name="AudioToggle" Header="Áudio" IsOn="True" Foreground="#D1D1DE" Margin="0,0,10,0" Toggled="OnOptionToggled"/>
+                    <Button x:Name="FullScreenButton" Content="[Y] Tela Cheia" Click="OnFullScreenToggleClick" Margin="6,0,0,0"
                             Background="#242430" Foreground="#D1D1DE" Padding="12,8"/>
                 </StackPanel>
             </Grid>
@@ -57,8 +68,10 @@
                 <TextBlock Text="Aguardando conexão com o Switch..." FontSize="20" Foreground="#666677" HorizontalAlignment="Center"/>
                 <TextBlock Text="Certifique-se de que o SysDVR (sysmodule) está ativo no Switch na mesma rede local"
                            FontSize="14" Foreground="#444455" Margin="0,8,0,0" HorizontalAlignment="Center"/>
-                <TextBlock Text="Portas TCP: 9911 (Vídeo) / 9922 (Áudio)"
-                           FontSize="12" Foreground="#333344" Margin="0,4,0,0" HorizontalAlignment="Center"/>
+                <TextBlock Text="Controle: [X] Auto-Scan | [A] Conectar | [B] Desconectar | [Y] Tela Cheia"
+                           FontSize="13" Foreground="#00E5FF" Margin="0,12,0,0" HorizontalAlignment="Center"/>
+                <TextBlock Text="Portas TCP: 9911 (Vídeo) / 9922 (Áudio) | UDP: 19999 (Beacon)"
+                           FontSize="12" Foreground="#333344" Margin="0,6,0,0" HorizontalAlignment="Center"/>
             </StackPanel>
         </Grid>
 

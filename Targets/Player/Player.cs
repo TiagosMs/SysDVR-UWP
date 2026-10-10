@@ -174,12 +174,15 @@ namespace SysDVR.Client.Targets.Player
         private readonly unsafe byte*[] _srcData = new byte*[4];
         private readonly int[] _srcLinesizes = new int[4];
 
-        public VideoPlayer(string? preferredDecoderName)
+        public bool LowLatency { get; set; } = true;
+
+        public VideoPlayer(string? preferredDecoderName, bool lowLatency = true)
         {
-            InitVideoDecoder(preferredDecoderName);
+            LowLatency = lowLatency;
+            InitVideoDecoder(preferredDecoderName, lowLatency);
         }
 
-        unsafe void InitVideoDecoder(string? name)
+        unsafe void InitVideoDecoder(string? name, bool lowLatency)
         {
             AVCodec* codec = null;
 
@@ -197,11 +200,11 @@ namespace SysDVR.Client.Targets.Player
             if (codec == null)
                 throw new Exception("Couldn't find any compatible video codecs");
 
-            Decoder = CreateDecoderContext(codec);
+            Decoder = CreateDecoderContext(codec, lowLatency);
             DecoderName = Marshal.PtrToStringAnsi((IntPtr)codec->name) ?? "h264";
         }
 
-        static unsafe DecoderContext CreateDecoderContext(AVCodec* codec)
+        static unsafe DecoderContext CreateDecoderContext(AVCodec* codec, bool lowLatency)
         {
             if (codec == null)
                 throw new Exception("Codec can't be null");
@@ -218,6 +221,17 @@ namespace SysDVR.Client.Targets.Player
             codectx->codec_id = codec->id;
             codectx->codec_type = AVMediaType.AVMEDIA_TYPE_VIDEO;
             codectx->bit_rate = 0;
+
+            if (lowLatency)
+            {
+                codectx->flags |= AV_CODEC_FLAG_LOW_DELAY;
+                codectx->flags2 |= AV_CODEC_FLAG2_FAST;
+                codectx->thread_count = 1;
+                if (codectx->priv_data != null)
+                {
+                    try { av_opt_set(codectx->priv_data, "tune", "zerolatency", 0); } catch { }
+                }
+            }
 
             // Some decoders break without this
             codectx->width = StreamInfo.VideoWidth;
@@ -264,6 +278,22 @@ namespace SysDVR.Client.Targets.Player
             {
                 Program.DebugLog($"avcodec_receive_frame {ret}");
                 return false;
+            }
+
+            if (LowLatency)
+            {
+                int drainCount = 0;
+                while (drainCount < 4)
+                {
+                    int nextRet = 0;
+                    lock (Decoder.CodecLock)
+                        nextRet = avcodec_receive_frame(Decoder.CodecCtx, Decoder.ReceiveFrame);
+
+                    if (nextRet != 0)
+                        break;
+
+                    drainCount++;
+                }
             }
 
             var frame = Decoder.ReceiveFrame;

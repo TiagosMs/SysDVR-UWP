@@ -228,7 +228,7 @@ namespace SysDVR.Client.Targets.Player
         Task VideoConsumerTask = null!;
         
         readonly Channel<(PoolBuffer, ulong)> videoBuffer = Channel.CreateBounded<(PoolBuffer, ulong)>(
-            new BoundedChannelOptions(50)
+            new BoundedChannelOptions(15)
             {
                 FullMode = BoundedChannelFullMode.DropOldest,
                 SingleReader = true,
