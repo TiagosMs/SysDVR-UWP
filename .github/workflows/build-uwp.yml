@@ -140,11 +140,26 @@ jobs:
           }
           Write-Host "Verificacao de DLLs nativas concluida com sucesso!"
 
+      - name: Package Release ZIP (UWP App + Dependencies + Cert)
+        shell: pwsh
+        run: |
+          $pkgDir = (Get-ChildItem AppPackages -Directory | Select-Object -First 1).FullName
+          if (-not $pkgDir) {
+            $pkgDir = "AppPackages"
+          }
+          Write-Host "Compactando pacote completo de: $pkgDir"
+          if (Test-Path "SysDVR_Dev.cer") {
+            Copy-Item "SysDVR_Dev.cer" -Destination $pkgDir -Force
+          }
+          Compress-Archive -Path "$pkgDir\*" -DestinationPath "SysDVR-UWP-Xbox-x64.zip" -Force
+          Write-Host "ZIP criado com sucesso: SysDVR-UWP-Xbox-x64.zip"
+
       - name: Upload AppX Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SysDVR-UWP-Xbox-x64
           path: |
+            SysDVR-UWP-Xbox-x64.zip
             AppPackages/**/*.appx
             AppPackages/**/*.msix
             AppPackages/**/*.cer
@@ -156,6 +171,7 @@ jobs:
         with:
           name: SysDVR UWP ${{ github.ref_name }} (Xbox Dev Mode)
           files: |
+            SysDVR-UWP-Xbox-x64.zip
             AppPackages/**/*.appx
             AppPackages/**/*.msix
             AppPackages/**/*.cer
