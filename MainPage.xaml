@@ -7,88 +7,195 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     RequiresPointer="Never"
-    Background="#0F0F12">
+    Background="#0B0C10">
 
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-
-        <!-- Top Header / Connection Controls -->
-        <Border x:Name="TopHeader" Grid.Row="0" Background="#18181F" Padding="20,12" BorderBrush="#2A2A36" BorderThickness="0,0,0,1">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="SysDVR" FontSize="22" FontWeight="Bold" Foreground="#00E5FF" VerticalAlignment="Center"/>
-                    <TextBlock Text="Xbox Edition" FontSize="14" Foreground="#8E8E9F" Margin="10,0,0,0" VerticalAlignment="Center"/>
-                </StackPanel>
-
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <TextBlock Text="Switch IP:" FontSize="15" Foreground="#D1D1DE" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBox x:Name="IpTextBox" Width="160" FontSize="15" PlaceholderText="192.168.1.50" Text="192.168.1."
-                             Background="#242430" Foreground="White" BorderBrush="#3D3D4E" VerticalAlignment="Center"
-                             TextChanged="OnIpTextChanged"/>
-                    
-                    <Button x:Name="ScanButton" Content="[X] Buscar Switch" Click="OnScanClick" Margin="8,0,0,0"
-                            Background="#2E2E40" Foreground="#00E5FF" FontWeight="SemiBold" Padding="12,8"/>
-
-                    <ComboBox x:Name="DeviceComboBox" Width="200" Margin="8,0,0,0" PlaceholderText="Switches encontradas..."
-                              Visibility="Collapsed" SelectionChanged="OnDeviceSelectionChanged"
-                              Background="#242430" Foreground="White" VerticalAlignment="Center"/>
-
-                    <Button x:Name="ConnectButton" Content="[A] Conectar" Click="OnConnectClick" Margin="8,0,0,0"
-                             Background="#00C853" Foreground="White" FontWeight="SemiBold" Padding="14,8"/>
-                    <Button x:Name="DisconnectButton" Content="[B] Desconectar" Click="OnDisconnectClick" Margin="8,0,0,0"
-                             Background="#D50000" Foreground="White" FontWeight="SemiBold" Padding="14,8" IsEnabled="False"/>
-                </StackPanel>
-
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <ToggleSwitch x:Name="LowLatencyToggle" Header="Baixa Latência" IsOn="True" Foreground="#D1D1DE" Margin="0,0,10,0" Toggled="OnOptionToggled"/>
-                    <ToggleSwitch x:Name="AudioToggle" Header="Áudio" IsOn="True" Foreground="#D1D1DE" Margin="0,0,10,0" Toggled="OnOptionToggled"/>
-                    <Button x:Name="FullScreenButton" Content="[Y] Tela Cheia" Click="OnFullScreenToggleClick" Margin="6,0,0,0"
-                            Background="#242430" Foreground="#D1D1DE" Padding="12,8"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <!-- Video Presentation Area -->
-        <Grid Grid.Row="1" Background="Black">
-            <!-- Native XAML Image rendering decoded video frames -->
-            <Image x:Name="VideoImage" Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" DoubleTapped="OnVideoDoubleTapped"/>
-
-            <!-- Placeholder overlay when disconnected -->
-            <StackPanel x:Name="IdleOverlay" HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="Aguardando conexão com o Switch..." FontSize="20" Foreground="#666677" HorizontalAlignment="Center"/>
-                <TextBlock Text="Certifique-se de que o SysDVR (sysmodule) está ativo no Switch na mesma rede local"
-                           FontSize="14" Foreground="#444455" Margin="0,8,0,0" HorizontalAlignment="Center"/>
-                <TextBlock Text="Controle: [X] Auto-Scan | [A] Conectar | [B] Desconectar | [Y] Tela Cheia"
-                           FontSize="13" Foreground="#00E5FF" Margin="0,12,0,0" HorizontalAlignment="Center"/>
-                <TextBlock Text="Portas TCP: 9911 (Vídeo) / 9922 (Áudio) | UDP: 19999 (Beacon)"
-                           FontSize="12" Foreground="#333344" Margin="0,6,0,0" HorizontalAlignment="Center"/>
-            </StackPanel>
+        <!-- 1. Camada de Apresentação de Vídeo (Ocupa 100% da tela) -->
+        <Grid Background="Black" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <Image x:Name="VideoImage" 
+                   Stretch="Uniform" 
+                   HorizontalAlignment="Stretch" 
+                   VerticalAlignment="Stretch" 
+                   DoubleTapped="OnVideoDoubleTapped"/>
         </Grid>
 
-        <!-- Status Bar -->
-        <Border x:Name="StatusBarBorder" Grid.Row="2" Background="#14141A" Padding="20,10" BorderBrush="#22222E" BorderThickness="0,1,0,0">
+        <!-- 2. HUD Superior Flutuante (Visível quando conectado para controles rápidos) -->
+        <Border x:Name="TopHeader" 
+                VerticalAlignment="Top" 
+                HorizontalAlignment="Stretch"
+                Background="#EE11121A" 
+                BorderBrush="#252636" 
+                BorderThickness="0,0,0,1" 
+                Padding="32,10"
+                Visibility="Collapsed">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock x:Name="StatusTextBlock" Text="Status: Desconectado" FontSize="13" Foreground="#9E9EB2" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="FpsTextBlock" Text="" FontSize="13" Foreground="#00E5FF" Margin="0,0,15,0"/>
-                    <TextBlock Text="Xbox Series Dev Mode" FontSize="12" Foreground="#5E5E6E" VerticalAlignment="Center"/>
+                <!-- Esquerda: Logo e Ação de Desconectar -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="SysDVR" FontSize="18" FontWeight="Bold" Foreground="#00E5FF" VerticalAlignment="Center"/>
+                    <Border Background="#1F2030" CornerRadius="4" Padding="6,2" Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="XBOX" FontSize="11" FontWeight="SemiBold" Foreground="#8E8E9F"/>
+                    </Border>
+                    <Button x:Name="DisconnectButton" 
+                            Content="[B] Desconectar" 
+                            Click="OnDisconnectClick" 
+                            Margin="20,0,0,0"
+                            Background="#D50000" 
+                            Foreground="White" 
+                            FontWeight="SemiBold" 
+                            CornerRadius="6" 
+                            Padding="14,6" 
+                            IsEnabled="False"/>
+                </StackPanel>
+
+                <!-- Centro: Status de Streaming -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Ellipse Width="8" Height="8" Fill="#00E676" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Transmitindo" FontSize="14" FontWeight="SemiBold" Foreground="#D1D1DE" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Direita: FPS e Alternador de Tela Cheia -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="FpsTextBlock" Text="" FontSize="15" FontWeight="Bold" Foreground="#00E5FF" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                    <Button x:Name="FullScreenButton" 
+                            Content="[Y] Ocultar Barra" 
+                            Click="OnFullScreenToggleClick" 
+                            Background="#222434" 
+                            Foreground="#D1D1DE" 
+                            FontWeight="SemiBold"
+                            CornerRadius="6" 
+                            Padding="14,6"/>
                 </StackPanel>
             </Grid>
         </Border>
+
+        <!-- 3. Dashboard Central Limpo e Moderno (Exibido quando desconectado) -->
+        <Grid x:Name="IdleOverlay" Background="#F20B0C10" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,32" MaxWidth="620">
+
+                    <!-- Cabeçalho do App -->
+                    <StackPanel HorizontalAlignment="Center" Margin="0,0,0,24">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <TextBlock Text="SysDVR" FontSize="36" FontWeight="Black" Foreground="#00E5FF"/>
+                            <TextBlock Text="UWP" FontSize="36" FontWeight="Light" Foreground="White" Margin="8,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Text="Streaming do Nintendo Switch para Xbox Series X|S" 
+                                   FontSize="15" Foreground="#7D7D92" Margin="0,4,0,0" HorizontalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Card Principal de Conexão -->
+                    <Border Background="#161722" BorderBrush="#262738" BorderThickness="1" CornerRadius="12" Padding="28">
+                        <StackPanel>
+                            
+                            <!-- Seção de IP -->
+                            <TextBlock Text="ENDEREÇO IP DO SWITCH" FontSize="12" FontWeight="Bold" Foreground="#8E8EAA" Margin="0,0,0,8"/>
+                            <Grid Margin="0,0,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="IpTextBox" 
+                                         Grid.Column="0"
+                                         Height="44"
+                                         FontSize="16" 
+                                         PlaceholderText="Ex: 192.168.1.50" 
+                                         Text="192.168.1."
+                                         Background="#202230" 
+                                         Foreground="White" 
+                                         BorderBrush="#35374C" 
+                                         CornerRadius="8"
+                                         VerticalContentAlignment="Center"
+                                         Padding="12,0"
+                                         TextChanged="OnIpTextChanged"/>
+                                <Button x:Name="ScanButton" 
+                                        Grid.Column="1"
+                                        Content="[X] Buscar na Rede" 
+                                        Click="OnScanClick" 
+                                        Height="44"
+                                        Margin="10,0,0,0"
+                                        Background="#27293C" 
+                                        Foreground="#00E5FF" 
+                                        FontWeight="SemiBold" 
+                                        CornerRadius="8" 
+                                        Padding="16,0"/>
+                            </Grid>
+
+                            <!-- Dropdown de Switches Detectadas -->
+                            <ComboBox x:Name="DeviceComboBox" 
+                                      Height="42"
+                                      HorizontalAlignment="Stretch"
+                                      Margin="0,0,0,14" 
+                                      PlaceholderText="Switches encontradas na rede..."
+                                      Visibility="Collapsed" 
+                                      SelectionChanged="OnDeviceSelectionChanged"
+                                      Background="#202230" 
+                                      Foreground="White" 
+                                      BorderBrush="#35374C"
+                                      CornerRadius="8"/>
+
+                            <!-- Opções Rápidas (Grid lado a lado) -->
+                            <Border Background="#1D1E2B" CornerRadius="8" Padding="14,10" Margin="0,0,0,18">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleSwitch x:Name="LowLatencyToggle" 
+                                                  Grid.Column="0"
+                                                  Header="Modo Baixa Latência" 
+                                                  IsOn="True" 
+                                                  Foreground="#D1D1DE" 
+                                                  Toggled="OnOptionToggled"/>
+                                    <ToggleSwitch x:Name="AudioToggle" 
+                                                  Grid.Column="1"
+                                                  Header="Transmitir Áudio" 
+                                                  IsOn="True" 
+                                                  Foreground="#D1D1DE" 
+                                                  Toggled="OnOptionToggled"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Botão Principal de Conexão -->
+                            <Button x:Name="ConnectButton" 
+                                    Content="[A] CONECTAR AO SWITCH" 
+                                    Click="OnConnectClick" 
+                                    Height="50"
+                                    HorizontalAlignment="Stretch"
+                                    Background="#00C853" 
+                                    Foreground="White" 
+                                    FontSize="16" 
+                                    FontWeight="Bold" 
+                                    CornerRadius="8"/>
+
+                            <!-- Feedback de Status -->
+                            <TextBlock x:Name="StatusTextBlock" 
+                                       Text="Status: Desconectado" 
+                                       FontSize="13" 
+                                       Foreground="#8E8EAA" 
+                                       Margin="0,14,0,0" 
+                                       HorizontalAlignment="Center" 
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Barra de Atalhos do Gamepad -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
+                        <TextBlock Text="[A] Conectar" FontSize="13" Foreground="#6A6C82" Margin="0,0,16,0"/>
+                        <TextBlock Text="[X] Auto-Scan" FontSize="13" Foreground="#6A6C82" Margin="0,0,16,0"/>
+                        <TextBlock Text="[Y] Alternar Menu" FontSize="13" Foreground="#6A6C82"/>
+                    </StackPanel>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Elemento invisível de compatibilidade com código existente -->
+        <Border x:Name="StatusBarBorder" Visibility="Collapsed"/>
     </Grid>
 </Page>

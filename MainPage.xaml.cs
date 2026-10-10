@@ -352,6 +352,7 @@ namespace SysDVR.UWP
                 _renderTask = Task.Run(() => StartRenderLoop(renderToken));
 
                 IdleOverlay.Visibility = Visibility.Collapsed;
+                TopHeader.Visibility = Visibility.Visible;
                 StatusTextBlock.Text = $"Transmitindo de {ip} (TCP 9911) | Latência: {(LowLatencyToggle.IsOn ? "Baixa" : "Padrão")}";
             }
             catch (Exception ex)
@@ -473,10 +474,9 @@ namespace SysDVR.UWP
 
         private void OnFullScreenToggleClick(object sender, RoutedEventArgs e)
         {
-            bool isFullScreen = TopHeader.Visibility == Visibility.Collapsed;
-            TopHeader.Visibility = isFullScreen ? Visibility.Visible : Visibility.Collapsed;
-            StatusBarBorder.Visibility = isFullScreen ? Visibility.Visible : Visibility.Collapsed;
-            FullScreenButton.Content = isFullScreen ? "[Y] Tela Cheia" : "[Y] Sair Tela Cheia";
+            bool isVisible = TopHeader.Visibility == Visibility.Visible;
+            TopHeader.Visibility = isVisible ? Visibility.Collapsed : Visibility.Visible;
+            FullScreenButton.Content = isVisible ? "[Y] Exibir Barra" : "[Y] Ocultar Barra";
         }
 
         private void OnVideoDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
@@ -532,6 +532,7 @@ namespace SysDVR.UWP
             _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
                 IdleOverlay.Visibility = Visibility.Visible;
+                TopHeader.Visibility = Visibility.Collapsed;
                 ConnectButton.IsEnabled = true;
                 DisconnectButton.IsEnabled = false;
                 IpTextBox.IsEnabled = true;
