@@ -16,7 +16,7 @@
         </Grid.RowDefinitions>
 
         <!-- Top Header / Connection Controls -->
-        <Border Grid.Row="0" Background="#18181F" Padding="24,16" BorderBrush="#2A2A36" BorderThickness="0,0,0,1">
+        <Border x:Name="TopHeader" Grid.Row="0" Background="#18181F" Padding="24,16" BorderBrush="#2A2A36" BorderThickness="0,0,0,1">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -34,21 +34,23 @@
                     <TextBox x:Name="IpTextBox" Width="220" FontSize="16" PlaceholderText="192.168.1.50" Text="192.168.1."
                              Background="#242430" Foreground="White" BorderBrush="#3D3D4E" VerticalAlignment="Center"/>
                     <Button x:Name="ConnectButton" Content="Conectar (TCP)" Click="OnConnectClick" Margin="14,0,0,0"
-                            Background="#00C853" Foreground="White" FontWeight="SemiBold" Padding="16,8"/>
+                             Background="#00C853" Foreground="White" FontWeight="SemiBold" Padding="16,8"/>
                     <Button x:Name="DisconnectButton" Content="Desconectar" Click="OnDisconnectClick" Margin="10,0,0,0"
-                            Background="#D50000" Foreground="White" FontWeight="SemiBold" Padding="16,8" IsEnabled="False"/>
+                             Background="#D50000" Foreground="White" FontWeight="SemiBold" Padding="16,8" IsEnabled="False"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <ToggleSwitch x:Name="AudioToggle" Header="Áudio" IsOn="True" Foreground="#D1D1DE" Margin="0,0,10,0"/>
+                    <Button x:Name="FullScreenButton" Content="Tela Cheia" Click="OnFullScreenToggleClick" Margin="6,0,0,0"
+                            Background="#242430" Foreground="#D1D1DE" Padding="12,8"/>
                 </StackPanel>
             </Grid>
         </Border>
 
         <!-- Video Presentation Area -->
         <Grid Grid.Row="1" Background="Black">
-            <!-- SwapChainPanel for native SDL2 / Direct3D 11 rendering -->
-            <SwapChainPanel x:Name="VideoSwapChainPanel" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+            <!-- Native XAML Image rendering decoded video frames -->
+            <Image x:Name="VideoImage" Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" DoubleTapped="OnVideoDoubleTapped"/>
 
             <!-- Placeholder overlay when disconnected -->
             <StackPanel x:Name="IdleOverlay" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -61,7 +63,7 @@
         </Grid>
 
         <!-- Status Bar -->
-        <Border Grid.Row="2" Background="#14141A" Padding="20,10" BorderBrush="#22222E" BorderThickness="0,1,0,0">
+        <Border x:Name="StatusBarBorder" Grid.Row="2" Background="#14141A" Padding="20,10" BorderBrush="#22222E" BorderThickness="0,1,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>

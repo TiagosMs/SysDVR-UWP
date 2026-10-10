@@ -42,6 +42,7 @@ namespace SysDVR.UWP
                 {
                     rootFrame.Navigate(typeof(MainPage), e.Arguments);
                 }
+                Windows.UI.ViewManagement.ApplicationView.GetForCurrentView().SetDesiredBoundsMode(Windows.UI.ViewManagement.ApplicationViewBoundsMode.UseCoreWindow);
                 Window.Current.Activate();
             }
         }

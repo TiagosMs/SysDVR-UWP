@@ -54,38 +54,19 @@ namespace SysDVR.Client.Platform
 
         public SDLContext()
         {
-            Debug.WriteLine("Initializing SDL");
+            Debug.WriteLine("Initializing SDL Audio");
 
             SDL_SetMainReady();
-            SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK).AssertZero(SDL_GetError);
-
-            SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
-            SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, Program.Options.ScaleHintForSDL);
+            SDL_Init(SDL_INIT_AUDIO).AssertZero(SDL_GetError);
 
             SDLThreadId = Thread.CurrentThread.ManagedThreadId;
         }
 
         public void CreateWindow(string? windowTitle)
         {
-            windowTitle = windowTitle is null ? "SysDVR-Client" : $"{windowTitle} - SysDVR-Client";
-
-            BugCheckThreadId();
-            DestroyWindow();
-
-            WindowHandle = SDL_CreateWindow(windowTitle, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                StreamInfo.VideoWidth, StreamInfo.VideoHeight,
-                SDL_WindowFlags.SDL_WINDOW_ALLOW_HIGHDPI | SDL_WindowFlags.SDL_WINDOW_RESIZABLE)
-                .AssertNotNull(SDL_GetError);
-
-            var flags = Program.Options.ForceSoftwareRenderer ? SDL_RendererFlags.SDL_RENDERER_SOFTWARE :
-                (SDL_RendererFlags.SDL_RENDERER_ACCELERATED | SDL_RendererFlags.SDL_RENDERER_PRESENTVSYNC);
-
-            RendererHandle = SDL_CreateRenderer(WindowHandle, -1, flags).AssertNotNull(SDL_GetError);
-
-            SDL_GetRendererInfo(RendererHandle, out var info);
-            Debug.WriteLine($"Initialized SDL with {Marshal.PtrToStringAnsi(info.name)} renderer");
-
-            UpdateSize();
+            // Video rendering in UWP is handled natively by XAML Image / WriteableBitmap.
+            // SDL is used exclusively for audio on UWP to prevent swap chain conflicts with XAML CoreWindow.
+            Debug.WriteLine("SDL CreateWindow: skipped on UWP (rendering via XAML)");
         }
 
         private bool UpdateSize()
@@ -186,7 +167,8 @@ namespace SysDVR.Client.Platform
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Render()
         {
-            SDL_RenderPresent(RendererHandle);
+            if (RendererHandle != IntPtr.Zero)
+                SDL_RenderPresent(RendererHandle);
         }
 
         public void DestroyWindow()
@@ -207,8 +189,11 @@ namespace SysDVR.Client.Platform
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void ClearScreen()
         {
-            SDL_SetRenderDrawColor(RendererHandle, 0x0, 0x0, 0x0, 0xFF);
-            SDL_RenderClear(RendererHandle);
+            if (RendererHandle != IntPtr.Zero)
+            {
+                SDL_SetRenderDrawColor(RendererHandle, 0x0, 0x0, 0x0, 0xFF);
+                SDL_RenderClear(RendererHandle);
+            }
         }
 
         public void SetFullScreen(bool enableFullScreen)

@@ -102,7 +102,8 @@ namespace SysDVR.Client.Targets.Player
 
         public AudioPlayer(BaseAudioPlayerTarget target) 
         {
-            Program.SdlCtx.BugCheckThreadId();
+            // Relax thread check for UWP async initialization
+            // Program.SdlCtx.BugCheckThreadId();
 
             IsCompatiblePlayer = target is QueuedStreamAudioTarget;
 
@@ -159,49 +160,23 @@ namespace SysDVR.Client.Targets.Player
 
     class VideoPlayer : IDisposable
     {
-        public const AVPixelFormat TargetDecodingFormat = AVPixelFormat.AV_PIX_FMT_YUV420P;
-        public readonly uint TargetTextureFormat = SDL_PIXELFORMAT_IYUV;
-
         public DecoderContext Decoder { get; private set; }
-        FormatConverterContext Converter; // Initialized only when the decoder output format doesn't match the SDL texture format
-
-        public string DecoderName { get; private set; }
+        public string DecoderName { get; private set; } = "h264";
         public bool UsingCustomDecoder { get; private set; }
 
-        public object TextureLock;
-        public IntPtr TargetTexture;
-        public SDL_Rect TargetTextureSize;
+        private unsafe SwsContext* _bgraConverter = null;
+        private int _lastWidth = 0;
+        private int _lastHeight = 0;
+        private AVPixelFormat _lastFormat = AVPixelFormat.AV_PIX_FMT_NONE;
+
+        private readonly unsafe byte*[] _dstData = new byte*[4];
+        private readonly int[] _dstLinesizes = new int[4];
+        private readonly unsafe byte*[] _srcData = new byte*[4];
+        private readonly int[] _srcLinesizes = new int[4];
 
         public VideoPlayer(string? preferredDecoderName)
         {
             InitVideoDecoder(preferredDecoderName);
-            InitSDLRenderTexture();
-        }
-
-        void InitSDLRenderTexture()
-        {
-            Program.SdlCtx.BugCheckThreadId();
-
-            var tex = SDL_CreateTexture(Program.SdlCtx.RendererHandle, TargetTextureFormat,
-                (int)SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
-                StreamInfo.VideoWidth, StreamInfo.VideoHeight).AssertNotNull(SDL_GetError);
-
-            if (Program.Options.Debug.Log)
-            {
-                var pixfmt = SDL_QueryTexture(tex, out var format, out var a, out var w, out var h);
-                System.Diagnostics.Debug.WriteLine($"SDL texture info: f = {SDL_GetPixelFormatName(format)} a = {a} w = {w} h = {h}");
-
-                SDL_RendererInfo info;
-                SDL_GetRendererInfo(Program.SdlCtx.RendererHandle, out info);
-                for (int i = 0; i < info.num_texture_formats; i++) unsafe
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Renderer supports pixel format {SDL_GetPixelFormatName(info.texture_formats[i])}");
-                    }
-            }
-
-            TargetTextureSize = new SDL_Rect() { x = 0, y = 0, w = StreamInfo.VideoWidth, h = StreamInfo.VideoHeight };
-            TargetTexture = tex;
-            TextureLock = new object();
         }
 
         unsafe void InitVideoDecoder(string? name)
@@ -223,7 +198,7 @@ namespace SysDVR.Client.Targets.Player
                 throw new Exception("Couldn't find any compatible video codecs");
 
             Decoder = CreateDecoderContext(codec);
-            DecoderName = Marshal.PtrToStringAnsi((IntPtr)codec->name);
+            DecoderName = Marshal.PtrToStringAnsi((IntPtr)codec->name) ?? "h264";
         }
 
         static unsafe DecoderContext CreateDecoderContext(AVCodec* codec)
@@ -231,7 +206,7 @@ namespace SysDVR.Client.Targets.Player
             if (codec == null)
                 throw new Exception("Codec can't be null");
 
-            string codecName = Marshal.PtrToStringAnsi((IntPtr)codec->name);
+            string codecName = Marshal.PtrToStringAnsi((IntPtr)codec->name) ?? "unknown";
 
             System.Diagnostics.Debug.WriteLine(string.Format(Program.Strings.Player.PlayerInitializationMessage, codecName));
 
@@ -274,54 +249,7 @@ namespace SysDVR.Client.Targets.Player
             };
         }
 
-        public unsafe bool DecodeFrame() 
-        {
-            if (DecodeFrameInternal())
-            {
-                // TODO: this call is needed only with opengl on linux (and not on every linux install i tested) where TextureUpdate must be called by the main thread,
-                // Check if are there any performance improvements by moving this to the decoder thread on other OSes
-                UpdateSDLTexture(Decoder.RenderFrame);
-
-                return true;
-            }
-            return false;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static int av_ceil_rshift(int a, int b) =>
-            -(-a >> b);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        unsafe void UpdateSDLTexture(AVFrame* pic)
-        {
-            if (pic->linesize[0] > 0 && pic->linesize[1] > 0 && pic->linesize[2] > 0)
-            {
-                SDL_UpdateYUVTexture(TargetTexture, ref TargetTextureSize,
-                    (IntPtr)pic->data[0], pic->linesize[0],
-                    (IntPtr)pic->data[1], pic->linesize[1],
-                    (IntPtr)pic->data[2], pic->linesize[2]);
-            }
-#if DEBUG
-            // Not sure if this is needed but ffplay source does handle this case, all my tests had positive linesize
-            else if (pic->linesize[0] < 0 && pic->linesize[1] < 0 && pic->linesize[2] < 0)
-            {
-                Program.DebugLog("Negative Linesize");
-                SDL_UpdateYUVTexture(TargetTexture, ref TargetTextureSize,
-                    (IntPtr)(pic->data[0] + pic->linesize[0] * (pic->height - 1)), -pic->linesize[0],
-                    (IntPtr)(pic->data[1] + pic->linesize[1] * (av_ceil_rshift(pic->height, 1) - 1)), -pic->linesize[1],
-                    (IntPtr)(pic->data[2] + pic->linesize[2] * (av_ceil_rshift(pic->height, 1) - 1)), -pic->linesize[2]);
-            }
-#endif
-            // While this doesn't seem to be handled in ffplay but the texture can be non-planar with some decoders
-            else if (pic->linesize[0] > 0 && pic->linesize[1] == 0)
-            {
-                SDL_UpdateTexture(TargetTexture, ref TargetTextureSize, (nint)pic->data[0], pic->linesize[0]);
-            }
-            else System.Diagnostics.Debug.WriteLine($"Error: Non-positive planar linesizes are not supported, open an issue on Github. {pic->linesize[0]} {pic->linesize[1]} {pic->linesize[2]}");
-        }
-
-        bool converterFirstFrameCheck = false;
-        unsafe bool DecodeFrameInternal()
+        public unsafe bool DecodeFrameToBuffer(byte* dstPixels, int dstStride)
         {
             int ret = 0;
 
@@ -330,104 +258,84 @@ namespace SysDVR.Client.Targets.Player
 
             if (ret == AVERROR(EAGAIN))
             {
-                // Try again for the next SDL frame
                 return false;
             }
             else if (ret != 0)
             {
-                // Should not happen
                 Program.DebugLog($"avcodec_receive_frame {ret}");
                 return false;
             }
-            else
+
+            var frame = Decoder.ReceiveFrame;
+            if (frame == null || frame->width <= 0 || frame->height <= 0)
             {
-                // On the first frame we get check if we need to use a converter
-                if (!converterFirstFrameCheck && Decoder.CodecCtx->pix_fmt != AVPixelFormat.AV_PIX_FMT_NONE)
-                {
-					Program.DebugLog($"Decoder.CodecCtx uses pixel format {Decoder.CodecCtx->pix_fmt}");
-
-                    converterFirstFrameCheck = true;
-                    if (Decoder.CodecCtx->pix_fmt != TargetDecodingFormat)
-                    {
-                        Converter = InitializeConverter(Decoder.CodecCtx);
-                        // Render to the converted frame
-                        Decoder.RenderFrame = Converter.Frame;
-                    }
-                }
-
-                if (Converter.Converter != null)
-                {
-                    var source = Decoder.ReceiveFrame;
-                    var target = Decoder.RenderFrame;
-                    sws_scale(Converter.Converter, source->data, source->linesize, 0, source->height, target->data, target->linesize);
-                }
-                else
-                {
-                    // Swap the frames so we can render source
-                    var toRender = Decoder.ReceiveFrame;
-                    var receiveNext = Decoder.RenderFrame;
-
-                    Decoder.ReceiveFrame = receiveNext;
-                    Decoder.RenderFrame = toRender;
-                }
-
-                return true;
+                Decoder.OnFrameEvent.Set();
+                return false;
             }
-        }
 
-        unsafe static FormatConverterContext InitializeConverter(AVCodecContext* codecctx)
-        {
-            AVFrame* dstframe = null;
-            SwsContext* swsContext = null;
-
-            Program.DebugLog($"Initializing converter for {codecctx->pix_fmt}");
-
-            dstframe = av_frame_alloc();
-
-            if (dstframe == null)
-                throw new Exception("Couldn't allocate the the converted frame");
-
-            dstframe->format = (int)TargetDecodingFormat;
-            dstframe->width = StreamInfo.VideoWidth;
-            dstframe->height = StreamInfo.VideoHeight;
-
-            av_frame_get_buffer(dstframe, 32).AssertZero("Couldn't allocate the buffer for the converted frame");
-
-            swsContext = sws_getContext(codecctx->width, codecctx->height, codecctx->pix_fmt,
-                                        dstframe->width, dstframe->height, (AVPixelFormat)dstframe->format,
-                                        SWS_FAST_BILINEAR, null, null, null);
-
-            if (swsContext == null)
-                throw new Exception("Couldn't initialize the converter");
-
-            return new FormatConverterContext()
+            if (_bgraConverter == null || _lastWidth != frame->width || _lastHeight != frame->height || _lastFormat != Decoder.CodecCtx->pix_fmt)
             {
-                Converter = swsContext,
-                Frame = dstframe
-            };
+                if (_bgraConverter != null)
+                {
+                    sws_freeContext(_bgraConverter);
+                    _bgraConverter = null;
+                }
+
+                _lastWidth = frame->width;
+                _lastHeight = frame->height;
+                _lastFormat = Decoder.CodecCtx->pix_fmt;
+
+                _bgraConverter = sws_getContext(
+                    frame->width, frame->height, Decoder.CodecCtx->pix_fmt,
+                    frame->width, frame->height, AVPixelFormat.AV_PIX_FMT_BGRA,
+                    SWS_FAST_BILINEAR, null, null, null);
+            }
+
+            if (_bgraConverter != null)
+            {
+                _srcData[0] = frame->data[0];
+                _srcData[1] = frame->data[1];
+                _srcData[2] = frame->data[2];
+                _srcData[3] = null;
+
+                _srcLinesizes[0] = frame->linesize[0];
+                _srcLinesizes[1] = frame->linesize[1];
+                _srcLinesizes[2] = frame->linesize[2];
+                _srcLinesizes[3] = 0;
+
+                _dstData[0] = dstPixels;
+                _dstData[1] = null;
+                _dstData[2] = null;
+                _dstData[3] = null;
+
+                _dstLinesizes[0] = dstStride;
+                _dstLinesizes[1] = 0;
+                _dstLinesizes[2] = 0;
+                _dstLinesizes[3] = 0;
+
+                sws_scale(_bgraConverter, _srcData, _srcLinesizes, 0, frame->height, _dstData, _dstLinesizes);
+            }
+
+            Decoder.OnFrameEvent.Set();
+            return true;
         }
 
         public unsafe void Dispose()
         {
-            var ptr = Decoder.Frame1;
-            av_frame_free(&ptr);
-
-            ptr = Decoder.Frame2;
-            av_frame_free(&ptr);
-
-            var ptr2 = Decoder.CodecCtx;
-            avcodec_free_context(&ptr2);
-
-            if (Converter.Converter != null)
+            if (_bgraConverter != null)
             {
-                var ptr3 = Converter.Frame;
-                av_frame_free(&ptr3);
-
-                sws_freeContext(Converter.Converter);
+                sws_freeContext(_bgraConverter);
+                _bgraConverter = null;
             }
 
-            if (TargetTexture != IntPtr.Zero)
-                SDL_DestroyTexture(TargetTexture);
+            var ptr = Decoder.Frame1;
+            if (ptr != null) av_frame_free(&ptr);
+
+            var ptr2 = Decoder.Frame2;
+            if (ptr2 != null) av_frame_free(&ptr2);
+
+            var ptr3 = Decoder.CodecCtx;
+            if (ptr3 != null) avcodec_free_context(&ptr3);
 
             Decoder.OnFrameEvent.Dispose();
         }
