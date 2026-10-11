@@ -12,7 +12,7 @@ using System.Runtime;
 using Windows.Storage;
 using Windows.System;
 using Windows.System.Display;
-using Windows.System.ProcessModel.ExtendedExecution.Foreground;
+using Windows.ApplicationModel.ExtendedExecution.Foreground;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
