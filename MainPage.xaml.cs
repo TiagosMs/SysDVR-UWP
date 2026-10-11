@@ -8,8 +8,11 @@ using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime;
 using Windows.Storage;
 using Windows.System;
+using Windows.System.Display;
+using Windows.System.ProcessModel.ExtendedExecution.Foreground;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -50,6 +53,9 @@ namespace SysDVR.UWP
         private CancellationTokenSource? _reconnectCts;
         private bool _isUserDisconnecting = false;
         private bool _isReconnecting = false;
+
+        private DisplayRequest? _displayRequest;
+        private ExtendedExecutionForegroundSession? _extendedExecutionSession;
 
         private readonly NetworkScan _networkScan = new();
         private readonly List<DeviceInfo> _foundDevices = new();
@@ -374,6 +380,9 @@ namespace SysDVR.UWP
                 var renderToken = _renderCts.Token;
                 _renderTask = Task.Run(() => StartRenderLoop(renderToken));
 
+                // Desbloqueia alocacao maxima de hardware no Xbox e impede descanso de tela
+                _ = AcquireXboxHardwareResourcesAsync();
+
                 IdleOverlay.Visibility = Visibility.Collapsed;
                 TopHeader.Visibility = Visibility.Visible;
                 StatusTextBlock.Text = $"Transmitindo de {ip} (TCP 9911)";
@@ -512,6 +521,12 @@ namespace SysDVR.UWP
             long lastFpsTime = 0;
             long lastBytes = Interlocked.Read(ref TCPBridgeSource.TotalBytesReceived);
 
+            try
+            {
+                Thread.CurrentThread.Priority = ThreadPriority.Highest;
+            }
+            catch { }
+
             while (!token.IsCancellationRequested)
             {
                 bool decoded = false;
@@ -630,7 +645,74 @@ namespace SysDVR.UWP
             {
                 _cts?.Dispose();
                 _cts = null;
+                ReleaseXboxHardwareResources();
             }
+        }
+
+        private async Task AcquireXboxHardwareResourcesAsync()
+        {
+            try
+            {
+                // 1. Manter a tela ativa no Xbox sem escurecimento ou protetor de tela
+                if (_displayRequest == null)
+                {
+                    _displayRequest = new DisplayRequest();
+                    _displayRequest.RequestActive();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[Xbox DisplayRequest] {ex.Message}");
+            }
+
+            try
+            {
+                // 2. Solicitar alocação irrestrita de núcleos e GPU (ExtendedExecution)
+                if (_extendedExecutionSession == null)
+                {
+                    _extendedExecutionSession = new ExtendedExecutionForegroundSession
+                    {
+                        Reason = ExtendedExecutionForegroundReason.Unconstrained,
+                        Description = "SysDVR Ultra Low Latency 60FPS Video Streaming"
+                    };
+                    var result = await _extendedExecutionSession.RequestExtensionAsync();
+                    Debug.WriteLine($"[Xbox Hardware] ExtendedExecution resultado: {result}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[Xbox Hardware] ExtendedExecution ex: {ex.Message}");
+            }
+
+            try
+            {
+                // 3. Ajustar GC para modo de sustentação de baixa latência contínua
+                GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
+            }
+            catch { }
+        }
+
+        private void ReleaseXboxHardwareResources()
+        {
+            try
+            {
+                _displayRequest?.RequestRelease();
+                _displayRequest = null;
+            }
+            catch { }
+
+            try
+            {
+                _extendedExecutionSession?.Dispose();
+                _extendedExecutionSession = null;
+            }
+            catch { }
+
+            try
+            {
+                GCSettings.LatencyMode = GCLatencyMode.Interactive;
+            }
+            catch { }
         }
 
         public void StopStreaming(string? statusMessage = null)

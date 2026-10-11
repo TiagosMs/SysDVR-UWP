@@ -16,6 +16,7 @@
                    Stretch="Uniform" 
                    HorizontalAlignment="Stretch" 
                    VerticalAlignment="Stretch" 
+                   ManipulationMode="None"
                    DoubleTapped="OnVideoDoubleTapped"/>
         </Grid>
 
