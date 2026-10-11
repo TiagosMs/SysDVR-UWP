@@ -219,6 +219,13 @@ namespace SysDVR.Client.Targets.Player
             codectx->codec_type = AVMediaType.AVMEDIA_TYPE_VIDEO;
             codectx->bit_rate = 0;
 
+            // Multi-threading slice-based para Xbox (Zen 2 cores) para decodificacao instantanea sem delay
+            codectx->thread_count = Math.Min(Math.Max(Environment.ProcessorCount, 2), 8);
+            codectx->thread_type = FF_THREAD_SLICE;
+
+            // Ocultacao inteligente de erros e deblocking contra pacotes corrompidos/descartados
+            codectx->error_concealment = FF_EC_DEBLOCK | FF_EC_GUESS_MVS;
+
             // Some decoders break without this
             codectx->width = StreamInfo.VideoWidth;
             codectx->height = StreamInfo.VideoHeight;
@@ -285,10 +292,13 @@ namespace SysDVR.Client.Targets.Player
                 _lastHeight = frame->height;
                 _lastFormat = Decoder.CodecCtx->pix_fmt;
 
+                // Scaler Lanczos de alta fidelidade cromatica com arredondamento exato para Xbox Series X|S
+                const int highQualityFlags = SWS_LANCZOS | SWS_ACCURATE_RND | SWS_FULL_CHR_H_INT | SWS_FULL_CHR_H_INP | SWS_BITEXACT;
+
                 _bgraConverter = sws_getContext(
                     frame->width, frame->height, Decoder.CodecCtx->pix_fmt,
                     frame->width, frame->height, AVPixelFormat.AV_PIX_FMT_BGRA,
-                    SWS_FAST_BILINEAR, null, null, null);
+                    highQualityFlags, null, null, null);
             }
 
             if (_bgraConverter != null)
